@@ -1,7 +1,8 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Heart, Activity, Droplet, PlusCircle, X, Bell, Camera, AlertCircle, Edit2, Moon, Sun, CheckCircle, LogOut, UserCircle } from 'lucide-react';
 
 import { collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDoc } from "firebase/firestore";
@@ -15,13 +16,56 @@ interface Medicao {
   timestamp?: any;
 }
 
+// TOOLTIP INTELIGENTE COM AVALIAÇÃO MÉDICA
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DotPersonalizado = (props: any) => {
-  const { cx, cy, value, isDarkMode } = props;
-  let cor = "#10B981"; 
-  if (value > 130 && value <= 180) cor = "#F59E0B"; 
-  if (value > 180 || value < 70) cor = "#EF4444"; 
-  return <circle cx={cx} cy={cy} r={5} fill={cor} stroke={isDarkMode ? "#1F2937" : "#fff"} strokeWidth={2} />;
+const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className={`p-3 rounded-xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-100 text-gray-800'}`}>
+        <p className="font-bold mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">Hora: {label}</p>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {payload.map((entry: any, index: number) => {
+          let status = ""; let colorBg = ""; let colorText = "";
+          
+          if (entry.dataKey === 'HGT') {
+            if (entry.value < 70 || entry.value > 180) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'SIS') {
+            if (entry.value < 100 || entry.value > 139) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'DIA') {
+            if (entry.value < 60 || entry.value > 89) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 85) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'SpO2') {
+            if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value < 95) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'BPM') {
+            if (entry.value < 50 || entry.value > 120) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value < 60 || entry.value > 100) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          }
+
+          return (
+            <div key={index} className="flex justify-between items-center gap-4 text-sm mb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                <span className="font-medium text-gray-500 dark:text-gray-400">{entry.name}:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{entry.value}</span>
+                <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md ${colorBg} ${colorText} dark:bg-opacity-20 dark:text-opacity-90`}>{status}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
 };
 
 export default function AppIdoso() {
@@ -59,11 +103,23 @@ export default function AppIdoso() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => setIsMounted(true), 10);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (telaAtual === 'app') {
       window.history.pushState(null, '', window.location.href);
-      window.onpopstate = function () { sair(); };
+      window.onpopstate = function () { 
+        window.history.pushState(null, '', window.location.href); 
+      };
     }
-  }, [telaAtual, sair]);
+  }, [telaAtual]);
+
+  useEffect(() => {
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [isDarkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -76,20 +132,17 @@ export default function AppIdoso() {
           } else {
             setUsuario(user);
             const dados = userDoc.data();
-            
             if (dados.role === 'idoso') {
               const pacSnap = await getDoc(doc(db, "pacientes", dados.cpf));
               if (pacSnap.exists()) {
                 setCpfAtivo(dados.cpf);
                 setTelaAtual('app');
               } else {
-                setErroAuth("Cliente não Cadastrado no sistema.");
+                setErroAuth("Cliente não Cadastrado.");
                 await signOut(auth);
                 setTelaAtual('auth');
               }
-            } else {
-                sair(); // Se familiar tentar acessar aqui, é expulso
-            }
+            } else { sair(); }
           }
         } catch {
           await signOut(auth);
@@ -108,11 +161,8 @@ export default function AppIdoso() {
     setErroAuth("");
     try {
       await signInWithEmailAndPassword(auth, email, senha);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      if (error.code === 'auth/invalid-credential') setErroAuth("E-mail ou senha incorretos.");
-      else if (error.code === 'auth/too-many-requests') setErroAuth("Muitas tentativas falhas. Aguarde um momento.");
-      else setErroAuth("Erro ao entrar. Verifique seus dados.");
+    } catch {
+      setErroAuth("E-mail ou senha incorretos.");
     }
   };
 
@@ -130,19 +180,10 @@ export default function AppIdoso() {
         nome: nomeRegistro.trim(),
         foto: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
       });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') setErroAuth("Este e-mail já está cadastrado.");
-      else setErroAuth("Erro ao criar conta. Verifique sua conexão.");
+    } catch {
+      setErroAuth("Erro ao criar conta. E-mail já usado ou sem rede.");
     }
   };
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsMounted(true), 1);
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-    return () => clearTimeout(timer);
-  }, [isDarkMode]);
 
   const toggleTheme = () => {
     const novoTema = !isDarkMode;
@@ -179,9 +220,9 @@ export default function AppIdoso() {
     return () => unsubPerfil();
   }, [cpfAtivo, telaAtual]);
 
-  const trocarFoto = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
+  const trocarFoto = (evento: React.ChangeEvent<HTMLInputElement>) => {
+    if (evento.target.files && evento.target.files[0]) {
+      const file = evento.target.files[0];
       const img = new window.Image();
       img.src = URL.createObjectURL(file);
       img.onload = async () => {
@@ -286,8 +327,21 @@ export default function AppIdoso() {
   const statusPressao = obterStatus("Pressao", pressaoAtual);
   const statusOxi = obterStatus("SpO2", oximetriaAtual);
   const statusBpm = obterStatus("BPM", batimentosAtual);
-  const dadosGrafico = listaMedicoes.filter(medicao => medicao.hgtNumero !== null);
   const precisaLembrete = listaMedicoes.length === 0;
+
+  // DADOS PARA O GRÁFICO MULTIVARIÁVEL
+  const dadosGraficoMultiplo = listaMedicoes.map(med => {
+    let sis = null; let dia = null;
+    if (med.pressao && med.pressao !== "--") {
+      const partes = med.pressao.split('/');
+      sis = parseInt(partes[0]); dia = parseInt(partes[1]);
+    }
+    return {
+      hora: med.hora, HGT: med.hgtNumero, SIS: sis, DIA: dia,
+      SpO2: med.oximetria !== "--" ? parseInt(med.oximetria) : null,
+      BPM: med.batimentos !== "--" ? parseInt(med.batimentos) : null
+    };
+  });
 
   const notificacoes = [];
   if (precisaLembrete && cpfAtivo && telaAtual === 'app') {
@@ -303,7 +357,6 @@ export default function AppIdoso() {
         <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-2xl border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-100'}`}>
             <div className="flex flex-col items-center mb-8">
-               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/icon.png" alt="Logo" className="w-20 h-20 rounded-2xl mb-4 shadow-md pointer-events-none" />
               <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital</h1>
               <p className="text-gray-500 dark:text-gray-400 text-center mt-2">Acesso exclusivo do Paciente.</p>
@@ -320,7 +373,7 @@ export default function AppIdoso() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">Seu CPF (Apenas números)</label>
-                    <input type="text" value={cpfRegistro} onChange={e => setCpfRegistro(e.target.value.replace(/\D/g, ''))} required maxLength={11} className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="12345678900" />
+                    <input type="text" inputMode="numeric" pattern="[0-9]*" value={cpfRegistro} onChange={e => setCpfRegistro(e.target.value.replace(/\D/g, ''))} required maxLength={11} className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="12345678900" />
                   </div>
                 </>
               )}
@@ -359,17 +412,16 @@ export default function AppIdoso() {
           <nav className={`border-b px-4 md:px-6 py-4 sticky top-0 z-30 shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
             <div className="max-w-7xl mx-auto flex justify-between items-center">
               <div className="flex items-center gap-3 text-teal-700 dark:text-teal-400">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/icon.png" alt="Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-contain shadow-sm pointer-events-none" />
                 <div className="flex flex-col justify-center">
                   <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital</span>
-                  <button onClick={editarNome} className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-400 hover:text-teal-600 transition-colors">
+                  <button onClick={editarNome} className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-500 hover:text-teal-600 dark:text-gray-400 transition-colors">
                     {nomeUsuario} <Edit2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>
               
-              <div className="hidden md:flex items-center gap-8 font-medium text-sm text-gray-500 dark:text-gray-400">
+              <div className="hidden md:flex items-center gap-8 font-medium text-sm text-gray-600 dark:text-gray-400">
                 <span onClick={() => setAbaAtiva('painel')} className={`pb-1 cursor-pointer transition-colors ${abaAtiva === 'painel' ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 font-semibold' : 'hover:text-teal-600'}`}>Painel Central</span>
                 <span onClick={() => setAbaAtiva('historico')} className={`pb-1 cursor-pointer transition-colors ${abaAtiva === 'historico' ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 font-semibold' : 'hover:text-teal-600'}`}>Histórico Clínico</span>
               </div>
@@ -380,12 +432,12 @@ export default function AppIdoso() {
                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Paciente</span>
                 </div>
 
-                <button onClick={toggleTheme} className="text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition relative">
-                  {isDarkMode ? <Sun className="w-5 h-5 md:w-6 md:h-6 text-amber-400" /> : <Moon className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />}
+                <button onClick={toggleTheme} className="text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 transition relative">
+                  {isDarkMode ? <Sun className="w-5 h-5 md:w-6 md:h-6 text-amber-400" /> : <Moon className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
 
                 <div className="relative">
-                  <button onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)} className="text-gray-400 hover:text-teal-600 transition relative">
+                  <button onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)} className="text-gray-500 hover:text-teal-600 dark:text-gray-400 transition relative">
                     <Bell className="w-5 h-5 md:w-6 md:h-6" />
                     {notificacoes.length > 0 && (
                       <span className="absolute top-0 right-0 flex h-2 w-2 md:h-3 md:w-3">
@@ -420,12 +472,11 @@ export default function AppIdoso() {
                   )}
                 </div>
 
-                <button onClick={sair} className="text-gray-400 hover:text-red-500 transition" title="Sair">
+                <button onClick={sair} className="text-gray-500 hover:text-red-500 dark:text-gray-400 transition" title="Sair">
                   <LogOut className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1 md:mx-2 hidden md:block"></div>
                 <div className="relative group cursor-pointer" onClick={() => inputFotoRef.current?.click()}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={fotoPerfil} alt="Perfil" className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white dark:border-gray-700 shadow-md object-cover group-hover:opacity-75 transition-all" />
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="w-4 h-4 text-white drop-shadow-md" /></div>
                   <input type="file" ref={inputFotoRef} onChange={trocarFoto} accept="image/*" className="hidden" />
@@ -453,81 +504,86 @@ export default function AppIdoso() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
-                  <div className={`p-5 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-10">
+                  <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
-                      <div className="flex justify-between items-start mb-3 md:mb-4">
-                        <div className="bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl"><Droplet className="w-5 h-5 text-red-500" /></div>
-                        {statusGlicemia && <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-bold ${statusGlicemia.cor}`}>{statusGlicemia.texto}</span>}
+                      <div className="flex justify-between items-start mb-2 md:mb-4">
+                        <div className="bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl"><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
+                        {statusGlicemia && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusGlicemia.cor}`}>{statusGlicemia.texto}</span>}
                       </div>
-                      <p className="text-gray-500 font-medium text-sm md:text-base mb-1">Glicemia (HGT)</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Glicemia</p>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-1 md:mt-2">
-                      <h3 className="text-2xl md:text-3xl font-extrabold">{glicemiaAtual}</h3>
-                      {glicemiaAtual !== "--" && <span className="text-gray-400 text-xs md:text-sm">mg/dL</span>}
+                    <div className="flex items-baseline gap-1 md:gap-2 mt-1">
+                      <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{glicemiaAtual}</h3>
+                      {glicemiaAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">mg/dL</span>}
                     </div>
                   </div>
 
-                  <div className={`p-5 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                  <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
-                      <div className="flex justify-between items-start mb-3 md:mb-4">
-                        <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl"><Heart className="w-5 h-5 text-emerald-500" /></div>
-                        {statusPressao && <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-bold ${statusPressao.cor}`}>{statusPressao.texto}</span>}
+                      <div className="flex justify-between items-start mb-2 md:mb-4">
+                        <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl"><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
+                        {statusPressao && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusPressao.cor}`}>{statusPressao.texto}</span>}
                       </div>
-                      <p className="text-gray-500 font-medium text-sm md:text-base mb-1">Pressão Arterial</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Pressão</p>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-1 md:mt-2">
-                      <h3 className="text-2xl md:text-3xl font-extrabold">{pressaoAtual}</h3>
-                      {pressaoAtual !== "--" && <span className="text-gray-400 text-xs md:text-sm">mmHg</span>}
+                    <div className="flex items-baseline gap-1 md:gap-2 mt-1">
+                      <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pressaoAtual}</h3>
+                      {pressaoAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">mmHg</span>}
                     </div>
                   </div>
 
-                  <div className={`p-5 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                  <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
-                      <div className="flex justify-between items-start mb-3 md:mb-4">
-                        <div className="bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-5 h-5 text-blue-500" /></div>
-                        {statusOxi && <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-bold ${statusOxi.cor}`}>{statusOxi.texto}</span>}
+                      <div className="flex justify-between items-start mb-2 md:mb-4">
+                        <div className="bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
+                        {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-500 font-medium text-sm md:text-base mb-1">Oxigênio (SpO2)</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-1 md:mt-2">
-                      <h3 className="text-2xl md:text-3xl font-extrabold">{oximetriaAtual}</h3>
-                      {oximetriaAtual !== "--" && <span className="text-gray-400 text-xs md:text-sm">%</span>}
+                    <div className="flex items-baseline gap-1 md:gap-2 mt-1">
+                      <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
+                      {oximetriaAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">%</span>}
                     </div>
                   </div>
 
-                  <div className={`p-5 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                  <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
-                      <div className="flex justify-between items-start mb-3 md:mb-4">
-                        <div className="bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-5 h-5 text-rose-500" /></div>
-                        {statusBpm && <span className={`px-2 py-1 rounded-full text-[10px] md:text-xs font-bold ${statusBpm.cor}`}>{statusBpm.texto}</span>}
+                      <div className="flex justify-between items-start mb-2 md:mb-4">
+                        <div className="bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
+                        {statusBpm && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusBpm.cor}`}>{statusBpm.texto}</span>}
                       </div>
-                      <p className="text-gray-500 font-medium text-sm md:text-base mb-1">Batimentos</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Batimentos</p>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-1 md:mt-2">
-                      <h3 className="text-2xl md:text-3xl font-extrabold">{batimentosAtual}</h3>
-                      {batimentosAtual !== "--" && <span className="text-gray-400 text-xs md:text-sm">BPM</span>}
+                    <div className="flex items-baseline gap-1 md:gap-2 mt-1">
+                      <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{batimentosAtual}</h3>
+                      {batimentosAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">BPM</span>}
                     </div>
                   </div>
                 </div>
 
-                <div className={`p-5 md:p-8 rounded-3xl shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                  <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8">Evolução Glicêmica (HGT)</h2>
-                  <div className="h-64 md:h-96 w-full pointer-events-none">
-                    {dadosGrafico.length === 0 ? (
+                <div className={`p-5 md:p-8 rounded-3xl shadow-sm border transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                  <h2 className={`text-xl md:text-2xl font-bold mb-6 md:mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Gráfico Geral de Sinais Vitais</h2>
+                  <div className="h-72 md:h-96 w-full pointer-events-none">
+                    {dadosGraficoMultiplo.length === 0 ? (
                       <div className={`h-full flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center ${isDarkMode ? 'text-gray-500 border-gray-700 bg-gray-900/40' : 'text-gray-400 border-gray-200'}`}>
-                        <Droplet className="w-10 h-10 mb-3 opacity-50" />
-                        <p className="text-base font-bold">Sem dados de HGT</p>
+                        <Activity className="w-10 h-10 mb-3 opacity-50" />
+                        <p className="text-base font-bold">Sem dados no banco</p>
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                        <LineChart data={dadosGrafico} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
+                        <LineChart data={dadosGraficoMultiplo} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
-                          <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 12 }} dy={10} />
-                          <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 12 }} />
-                          <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: isDarkMode ? '#1F2937' : '#fff', color: isDarkMode ? '#fff' : '#000' }} />
-                          <ReferenceArea y1={70} y2={130} fill="#10B981" fillOpacity={isDarkMode ? 0.15 : 0.08} />
-                          <Line type="monotone" dataKey="hgtNumero" name="Glicemia" stroke="#0D9488" strokeWidth={4} dot={(props) => <DotPersonalizado {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
+                          <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
+                          {/* O NOVO TOOLTIP INTELIGENTE AQUI */}
+                          <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                          <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: isDarkMode ? '#9CA3AF' : '#4B5563' }} />
+                          <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     )}
@@ -538,16 +594,16 @@ export default function AppIdoso() {
 
             {abaAtiva === 'historico' && (
               <div className="animate-in fade-in duration-300">
-                <div className={`p-5 md:p-8 rounded-3xl shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                  <h2 className="text-xl md:text-2xl font-bold mb-6">Histórico Clínico</h2>
+                <div className={`p-5 md:p-8 rounded-3xl shadow-sm border transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                  <h2 className={`text-xl md:text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Histórico Clínico</h2>
                   {listaMedicoes.length === 0 ? (
-                    <div className="text-center py-12 rounded-2xl border-2 border-dashed text-gray-500"><p className="font-medium">O banco de dados está vazio.</p></div>
+                    <div className={`text-center py-12 rounded-2xl border-2 border-dashed ${isDarkMode ? 'border-gray-700 text-gray-500 bg-gray-900/30' : 'border-gray-200 text-gray-500'}`}><p className="font-medium">O banco de dados está vazio.</p></div>
                   ) : (
                     <div className="overflow-x-auto -mx-5 md:mx-0">
                       <div className="inline-block min-w-full align-middle px-5 md:px-0">
                         <table className="min-w-full text-left border-collapse">
                           <thead>
-                            <tr className="border-b-2 text-xs md:text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                            <tr className={`border-b-2 text-xs md:text-sm uppercase tracking-wider ${isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-600'}`}>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">Data</th>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">Hora</th>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">HGT</th>
@@ -558,10 +614,10 @@ export default function AppIdoso() {
                           </thead>
                           <tbody>
                             {listaMedicoes.slice().reverse().map((medicao, index) => (
-                              <tr key={medicao.id || index} className="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td className="py-3 px-3 whitespace-nowrap">{medicao.data}</td>
+                              <tr key={medicao.id || index} className={`border-b transition-colors ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-700/50' : 'border-gray-100 text-gray-700 hover:bg-gray-50'}`}>
+                                <td className="py-3 px-3 whitespace-nowrap">{medicao.data || "--"}</td>
                                 <td className="py-3 px-3 font-medium whitespace-nowrap">{medicao.hora}</td>
-                                <td className="py-3 px-3 whitespace-nowrap">{medicao.hgtTexto} {medicao.hgtTexto !== "--" && <span className="text-xs text-gray-400">mg/dL</span>}</td>
+                                <td className="py-3 px-3 whitespace-nowrap">{medicao.hgtTexto} {medicao.hgtTexto !== "--" && <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>mg/dL</span>}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.pressao}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.oximetria} {medicao.oximetria !== "--" && "%"}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.batimentos}</td>
@@ -589,30 +645,30 @@ export default function AppIdoso() {
                   <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                     <label className="flex items-center gap-2 font-bold mb-2 text-sm"><Droplet className="w-4 h-4 text-red-500"/> Glicemia (HGT)</label>
                     <div className="flex items-center gap-3">
-                      <input type="number" value={formHGT} onChange={(e) => setFormHGT(e.target.value)} placeholder="000" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formHGT} onChange={(e) => setFormHGT(e.target.value.replace(/\D/g, ''))} placeholder="000" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                       <span className="text-gray-400 font-medium text-sm">mg/dL</span>
                     </div>
                   </div>
                   <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                     <label className="flex items-center gap-2 font-bold mb-2 text-sm"><Heart className="w-4 h-4 text-emerald-500"/> Pressão Arterial</label>
                     <div className="flex items-center justify-center gap-2">
-                      <input type="number" value={formPressaoSis} onChange={(e) => setFormPressaoSis(e.target.value)} placeholder="120" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoSis} onChange={(e) => setFormPressaoSis(e.target.value.replace(/\D/g, ''))} placeholder="120" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                       <span className="text-2xl text-gray-300 dark:text-gray-600 font-light">/</span>
-                      <input type="number" value={formPressaoDia} onChange={(e) => setFormPressaoDia(e.target.value)} placeholder="80" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoDia} onChange={(e) => setFormPressaoDia(e.target.value.replace(/\D/g, ''))} placeholder="80" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                     </div>
                   </div>
                   <div className="flex gap-3">
                     <div className={`w-1/2 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                       <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-blue-500"/> Oxigênio</label>
                       <div className="flex items-center gap-1">
-                        <input type="number" value={formOxi} onChange={(e) => setFormOxi(e.target.value)} placeholder="98" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formOxi} onChange={(e) => setFormOxi(e.target.value.replace(/\D/g, ''))} placeholder="98" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                         <span className="text-gray-400 font-medium text-sm">%</span>
                       </div>
                     </div>
                     <div className={`w-1/2 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                       <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-rose-500"/> Batimentos</label>
                       <div className="flex items-center gap-1">
-                        <input type="number" value={formBpm} onChange={(e) => setFormBpm(e.target.value)} placeholder="75" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formBpm} onChange={(e) => setFormBpm(e.target.value.replace(/\D/g, ''))} placeholder="75" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                         <span className="text-gray-400 font-medium text-xs">BPM</span>
                       </div>
                     </div>

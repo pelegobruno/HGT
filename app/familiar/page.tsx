@@ -48,11 +48,22 @@ export default function AppFamiliar() {
   const [oximetriaAtual, setOximetriaAtual] = useState("--");
   const [batimentosAtual, setBatimentosAtual] = useState("--");
 
+  // INICIALIZAÇÃO E MEMÓRIA
   useEffect(() => {
-    const timer = setTimeout(() => setIsMounted(true), 1);
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+      const cpfSalvo = localStorage.getItem('familiarCpfAtivo');
+      if (cpfSalvo) {
+        setCpfAtivo(cpfSalvo);
+        setTelaAtual('app');
+      }
+    }, 10);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
-    return () => clearTimeout(timer);
   }, [isDarkMode]);
 
   const toggleTheme = () => {
@@ -73,6 +84,7 @@ export default function AppFamiliar() {
         if (pacienteSnap.exists()) {
           setCpfAtivo(cpfBusca);
           setTelaAtual('app');
+          localStorage.setItem('familiarCpfAtivo', cpfBusca);
         } else {
           setErroBusca("Paciente não encontrado. Verifique o CPF.");
         }
@@ -84,6 +96,13 @@ export default function AppFamiliar() {
     } else {
       setErroBusca("Digite um CPF válido com 11 números.");
     }
+  };
+
+  const sairFamiliar = () => {
+    setTelaAtual('busca');
+    setCpfAtivo('');
+    setCpfBusca('');
+    localStorage.removeItem('familiarCpfAtivo'); 
   };
 
   useEffect(() => {
@@ -169,7 +188,7 @@ export default function AppFamiliar() {
             <div className="flex flex-col items-center mb-8">
               <img src="/icon-familiar.png" alt="Logo EloVital Família" className="w-20 h-20 rounded-2xl mb-4 shadow-md pointer-events-none" />
               <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital</h1>
-              <p className="text-gray-500 dark:text-gray-400 text-center mt-2">Acompanhe a saúde de quem você ama.</p>
+              <p className="text-gray-600 dark:text-gray-400 text-center mt-2">Acompanhe a saúde de quem você ama.</p>
             </div>
             
             {erroBusca && (
@@ -180,7 +199,7 @@ export default function AppFamiliar() {
 
             <form onSubmit={buscarPaciente}>
               <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">CPF do Paciente</label>
-              <input type="text" value={cpfBusca} onChange={e => setCpfBusca(e.target.value.replace(/\D/g, ''))} maxLength={11} placeholder="Apenas números" required className={`w-full p-4 text-lg text-center tracking-widest rounded-xl border-2 mb-4 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-teal-50/30 border-teal-100 text-gray-900'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={cpfBusca} onChange={e => setCpfBusca(e.target.value.replace(/\D/g, ''))} maxLength={11} placeholder="Apenas números" required className={`w-full p-4 text-lg text-center tracking-widest rounded-xl border-2 mb-4 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-teal-50/30 border-teal-100 text-gray-900'}`} />
               <button type="submit" disabled={buscando} className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-transform active:scale-95">
                 {buscando ? "Verificando..." : <><Search className="w-5 h-5" /> Acessar Prontuário</>}
               </button>
@@ -197,13 +216,13 @@ export default function AppFamiliar() {
                 <img src="/icon-familiar.png" alt="Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-contain shadow-sm pointer-events-none" />
                 <div className="flex flex-col justify-center">
                   <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital</span>
-                  <span className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  <span className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-600 dark:text-gray-400">
                     Acompanhando: {nomeUsuario}
                   </span>
                 </div>
               </div>
               
-              <div className="hidden md:flex items-center gap-8 font-medium text-sm text-gray-500 dark:text-gray-400">
+              <div className="hidden md:flex items-center gap-8 font-medium text-sm text-gray-600 dark:text-gray-400">
                 <span onClick={() => setAbaAtiva('painel')} className={`pb-1 cursor-pointer transition-colors ${abaAtiva === 'painel' ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 font-semibold' : 'hover:text-teal-600'}`}>Painel Central</span>
                 <span onClick={() => setAbaAtiva('historico')} className={`pb-1 cursor-pointer transition-colors ${abaAtiva === 'historico' ? 'text-teal-600 dark:text-teal-400 border-b-2 border-teal-600 dark:border-teal-400 font-semibold' : 'hover:text-teal-600'}`}>Histórico Clínico</span>
               </div>
@@ -214,11 +233,11 @@ export default function AppFamiliar() {
                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Modo Leitura</span>
                 </div>
 
-                <button onClick={toggleTheme} className="text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 transition relative">
-                  {isDarkMode ? <Sun className="w-5 h-5 md:w-6 md:h-6 text-amber-400" /> : <Moon className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />}
+                <button onClick={toggleTheme} className="text-gray-500 hover:text-teal-600 dark:text-gray-400 dark:hover:text-teal-400 transition relative">
+                  {isDarkMode ? <Sun className="w-5 h-5 md:w-6 md:h-6 text-amber-400" /> : <Moon className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
 
-                <button onClick={() => { setTelaAtual('busca'); setCpfAtivo(''); }} className="text-gray-400 hover:text-red-500 transition" title="Sair">
+                <button onClick={sairFamiliar} className="text-gray-500 hover:text-red-500 dark:text-gray-400 transition" title="Sair">
                   <LogOut className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1 md:mx-2 hidden md:block"></div>
@@ -251,11 +270,11 @@ export default function AppFamiliar() {
                         <div className="bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl"><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
                         {statusGlicemia && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusGlicemia.cor}`}>{statusGlicemia.texto}</span>}
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Glicemia</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Glicemia</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{glicemiaAtual}</h3>
-                      {glicemiaAtual !== "--" && <span className="text-gray-400 dark:text-gray-500 text-[10px] md:text-sm">mg/dL</span>}
+                      {glicemiaAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">mg/dL</span>}
                     </div>
                   </div>
 
@@ -265,11 +284,11 @@ export default function AppFamiliar() {
                         <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl"><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
                         {statusPressao && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusPressao.cor}`}>{statusPressao.texto}</span>}
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Pressão</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Pressão</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pressaoAtual}</h3>
-                      {pressaoAtual !== "--" && <span className="text-gray-400 dark:text-gray-500 text-[10px] md:text-sm">mmHg</span>}
+                      {pressaoAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">mmHg</span>}
                     </div>
                   </div>
 
@@ -279,11 +298,11 @@ export default function AppFamiliar() {
                         <div className="bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
                         {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
-                      {oximetriaAtual !== "--" && <span className="text-gray-400 dark:text-gray-500 text-[10px] md:text-sm">%</span>}
+                      {oximetriaAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">%</span>}
                     </div>
                   </div>
 
@@ -293,11 +312,11 @@ export default function AppFamiliar() {
                         <div className="bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
                         {statusBpm && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusBpm.cor}`}>{statusBpm.texto}</span>}
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Batimentos</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Batimentos</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{batimentosAtual}</h3>
-                      {batimentosAtual !== "--" && <span className="text-gray-400 dark:text-gray-500 text-[10px] md:text-sm">BPM</span>}
+                      {batimentosAtual !== "--" && <span className="text-gray-500 dark:text-gray-500 text-[10px] md:text-sm">BPM</span>}
                     </div>
                   </div>
                 </div>
@@ -306,7 +325,7 @@ export default function AppFamiliar() {
                   <h2 className={`text-xl md:text-2xl font-bold mb-6 md:mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Evolução Glicêmica (HGT)</h2>
                   <div className="h-64 md:h-96 w-full pointer-events-none">
                     {dadosGrafico.length === 0 ? (
-                      <div className={`h-full flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center ${isDarkMode ? 'text-gray-500 border-gray-700 bg-gray-900/40' : 'text-gray-400 border-gray-200'}`}>
+                      <div className={`h-full flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center ${isDarkMode ? 'text-gray-500 border-gray-700 bg-gray-900/40' : 'text-gray-500 border-gray-200'}`}>
                         <Droplet className="w-10 h-10 mb-3 opacity-50" />
                         <p className="text-base font-bold">Sem dados no banco</p>
                       </div>
@@ -314,8 +333,8 @@ export default function AppFamiliar() {
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                         <LineChart data={dadosGrafico} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
-                          <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 12 }} dy={10} />
-                          <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 12 }} />
+                          <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
+                          <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
                           <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: isDarkMode ? '#1F2937' : '#fff', color: isDarkMode ? '#fff' : '#000', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)' }} />
                           <ReferenceArea y1={70} y2={130} fill="#10B981" fillOpacity={isDarkMode ? 0.15 : 0.08} />
                           <Line type="monotone" dataKey="hgtNumero" name="Glicemia" stroke="#0D9488" strokeWidth={4} dot={(props) => <DotPersonalizado {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
@@ -338,7 +357,7 @@ export default function AppFamiliar() {
                       <div className="inline-block min-w-full align-middle px-5 md:px-0">
                         <table className="min-w-full text-left border-collapse">
                           <thead>
-                            <tr className={`border-b-2 text-xs md:text-sm uppercase tracking-wider ${isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
+                            <tr className={`border-b-2 text-xs md:text-sm uppercase tracking-wider ${isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-600'}`}>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">Data</th>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">Hora</th>
                               <th className="pb-3 px-3 font-semibold whitespace-nowrap">HGT</th>
@@ -349,10 +368,10 @@ export default function AppFamiliar() {
                           </thead>
                           <tbody>
                             {listaMedicoes.slice().reverse().map((medicao, index) => (
-                              <tr key={medicao.id || index} className={`border-b transition-colors ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-700/50' : 'border-gray-50 text-gray-700 hover:bg-gray-50'}`}>
+                              <tr key={medicao.id || index} className={`border-b transition-colors ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-700/50' : 'border-gray-100 text-gray-700 hover:bg-gray-50'}`}>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.data || "--"}</td>
                                 <td className="py-3 px-3 font-medium whitespace-nowrap">{medicao.hora}</td>
-                                <td className="py-3 px-3 whitespace-nowrap">{medicao.hgtTexto} {medicao.hgtTexto !== "--" && <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>mg/dL</span>}</td>
+                                <td className="py-3 px-3 whitespace-nowrap">{medicao.hgtTexto} {medicao.hgtTexto !== "--" && <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>mg/dL</span>}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.pressao}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.oximetria} {medicao.oximetria !== "--" && "%"}</td>
                                 <td className="py-3 px-3 whitespace-nowrap">{medicao.batimentos}</td>

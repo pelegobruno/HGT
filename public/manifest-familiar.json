@@ -4,12 +4,18 @@
   "description": "Acompanhamento remoto de saúde e sinais vitais.",
   "start_url": "/familiar",
   "display": "standalone",
-  "background_color": "#F0F4F8",
+  "background_color": "#F8FAFC",
   "theme_color": "#0D9488",
   "icons": [
     {
       "src": "/icon-familiar.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-familiar-180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any maskable"
     }
