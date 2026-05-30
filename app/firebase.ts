@@ -1,6 +1,6 @@
-// app/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBDnzoUoWsMomCKcE8kJHPC43ULtTRvugY",
@@ -11,8 +11,6 @@ const firebaseConfig = {
   appId: "1:477404989909:web:7c21de2b5160a6e114555c"
 };
 
-// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
-
-// Exporta o banco de dados para podermos usar na nossa tela
 export const db = getFirestore(app);
+export const auth = getAuth(app);

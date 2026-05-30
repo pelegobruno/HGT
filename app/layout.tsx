@@ -5,8 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EloVital",
+  title: "EloVital Família",
   description: "Monitoramento de saúde doméstico",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
