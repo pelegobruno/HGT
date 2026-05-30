@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Heart, Activity, Droplet, Search, LogOut, UserCircle, Moon, Sun } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase"; 
@@ -14,13 +14,56 @@ interface Medicao {
   timestamp?: any;
 }
 
+// TOOLTIP INTELIGENTE COM AVALIAÇÃO MÉDICA
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DotPersonalizado = (props: any) => {
-  const { cx, cy, value, isDarkMode } = props;
-  let cor = "#10B981"; 
-  if (value > 130 && value <= 180) cor = "#F59E0B"; 
-  if (value > 180 || value < 70) cor = "#EF4444"; 
-  return <circle cx={cx} cy={cy} r={5} fill={cor} stroke={isDarkMode ? "#1F2937" : "#fff"} strokeWidth={2} />;
+const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className={`p-3 rounded-xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-100 text-gray-800'}`}>
+        <p className="font-bold mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">Hora: {label}</p>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {payload.map((entry: any, index: number) => {
+          let status = ""; let colorBg = ""; let colorText = "";
+          
+          if (entry.dataKey === 'HGT') {
+            if (entry.value < 70 || entry.value > 180) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'SIS') {
+            if (entry.value < 100 || entry.value > 139) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'DIA') {
+            if (entry.value < 60 || entry.value > 89) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value > 85) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'SpO2') {
+            if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value < 95) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          } else if (entry.dataKey === 'BPM') {
+            if (entry.value < 50 || entry.value > 120) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value < 60 || entry.value > 100) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
+          }
+
+          return (
+            <div key={index} className="flex justify-between items-center gap-4 text-sm mb-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                <span className="font-medium text-gray-500 dark:text-gray-400">{entry.name}:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{entry.value}</span>
+                <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md ${colorBg} ${colorText} dark:bg-opacity-20 dark:text-opacity-90`}>{status}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
 };
 
 export default function AppFamiliar() {
@@ -175,7 +218,19 @@ export default function AppFamiliar() {
   const statusPressao = obterStatus("Pressao", pressaoAtual);
   const statusOxi = obterStatus("SpO2", oximetriaAtual);
   const statusBpm = obterStatus("BPM", batimentosAtual);
-  const dadosGrafico = listaMedicoes.filter(medicao => medicao.hgtNumero !== null);
+
+  const dadosGraficoMultiplo = listaMedicoes.map(med => {
+    let sis = null; let dia = null;
+    if (med.pressao && med.pressao !== "--") {
+      const partes = med.pressao.split('/');
+      sis = parseInt(partes[0]); dia = parseInt(partes[1]);
+    }
+    return {
+      hora: med.hora, HGT: med.hgtNumero, SIS: sis, DIA: dia,
+      SpO2: med.oximetria !== "--" ? parseInt(med.oximetria) : null,
+      BPM: med.batimentos !== "--" ? parseInt(med.batimentos) : null
+    };
+  });
 
   if (!isMounted) return null;
 
@@ -187,7 +242,7 @@ export default function AppFamiliar() {
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
             <div className="flex flex-col items-center mb-8">
               <img src="/icon-familiar.png" alt="Logo EloVital Família" className="w-20 h-20 rounded-2xl mb-4 shadow-md pointer-events-none" />
-              <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital</h1>
+              <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital Família</h1>
               <p className="text-gray-600 dark:text-gray-400 text-center mt-2">Acompanhe a saúde de quem você ama.</p>
             </div>
             
@@ -215,7 +270,7 @@ export default function AppFamiliar() {
               <div className="flex items-center gap-3 text-teal-700 dark:text-teal-400">
                 <img src="/icon-familiar.png" alt="Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-contain shadow-sm pointer-events-none" />
                 <div className="flex flex-col justify-center">
-                  <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital</span>
+                  <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital Família</span>
                   <span className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-600 dark:text-gray-400">
                     Acompanhando: {nomeUsuario}
                   </span>
@@ -263,7 +318,6 @@ export default function AppFamiliar() {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-10">
-                  
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
@@ -322,22 +376,26 @@ export default function AppFamiliar() {
                 </div>
 
                 <div className={`p-5 md:p-8 rounded-3xl shadow-sm border transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                  <h2 className={`text-xl md:text-2xl font-bold mb-6 md:mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Evolução Glicêmica (HGT)</h2>
-                  <div className="h-64 md:h-96 w-full pointer-events-none">
-                    {dadosGrafico.length === 0 ? (
-                      <div className={`h-full flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center ${isDarkMode ? 'text-gray-500 border-gray-700 bg-gray-900/40' : 'text-gray-500 border-gray-200'}`}>
-                        <Droplet className="w-10 h-10 mb-3 opacity-50" />
+                  <h2 className={`text-xl md:text-2xl font-bold mb-6 md:mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Gráfico Geral de Sinais Vitais</h2>
+                  <div className="h-72 md:h-96 w-full pointer-events-none">
+                    {dadosGraficoMultiplo.length === 0 ? (
+                      <div className={`h-full flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-4 text-center ${isDarkMode ? 'text-gray-500 border-gray-700 bg-gray-900/40' : 'text-gray-400 border-gray-200'}`}>
+                        <Activity className="w-10 h-10 mb-3 opacity-50" />
                         <p className="text-base font-bold">Sem dados no banco</p>
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                        <LineChart data={dadosGrafico} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
+                        <LineChart data={dadosGraficoMultiplo} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
-                          <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: isDarkMode ? '#1F2937' : '#fff', color: isDarkMode ? '#fff' : '#000', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.3)' }} />
-                          <ReferenceArea y1={70} y2={130} fill="#10B981" fillOpacity={isDarkMode ? 0.15 : 0.08} />
-                          <Line type="monotone" dataKey="hgtNumero" name="Glicemia" stroke="#0D9488" strokeWidth={4} dot={(props) => <DotPersonalizado {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          {/* O NOVO TOOLTIP INTELIGENTE AQUI */}
+                          <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                          <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     )}

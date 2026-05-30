@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Heart, Activity, Droplet, PlusCircle, X, Bell, Camera, AlertCircle, Edit2, Moon, Sun, CheckCircle, LogOut, UserCircle } from 'lucide-react';
 
 import { collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDoc } from "firebase/firestore";
@@ -16,7 +16,6 @@ interface Medicao {
   timestamp?: any;
 }
 
-// TOOLTIP INTELIGENTE COM AVALIAÇÃO MÉDICA
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
   if (active && payload && payload.length) {
@@ -91,8 +90,6 @@ export default function AppIdoso() {
   const [fotoPerfil, setFotoPerfil] = useState("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80");
   const [nomeUsuario, setNomeUsuario] = useState("Paciente");
 
-  const inputSemSetas = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
-
   const sair = useCallback(() => {
     signOut(auth);
     setUsuario(null);
@@ -132,17 +129,20 @@ export default function AppIdoso() {
           } else {
             setUsuario(user);
             const dados = userDoc.data();
+            
             if (dados.role === 'idoso') {
               const pacSnap = await getDoc(doc(db, "pacientes", dados.cpf));
               if (pacSnap.exists()) {
                 setCpfAtivo(dados.cpf);
                 setTelaAtual('app');
               } else {
-                setErroAuth("Cliente não Cadastrado.");
+                setErroAuth("Cliente não Cadastrado no sistema.");
                 await signOut(auth);
                 setTelaAtual('auth');
               }
-            } else { sair(); }
+            } else {
+                sair(); 
+            }
           }
         } catch {
           await signOut(auth);
@@ -161,16 +161,19 @@ export default function AppIdoso() {
     setErroAuth("");
     try {
       await signInWithEmailAndPassword(auth, email, senha);
-    } catch {
-      setErroAuth("E-mail ou senha incorretos.");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (err?.code === 'auth/invalid-credential') setErroAuth("E-mail ou senha incorretos.");
+      else if (err?.code === 'auth/too-many-requests') setErroAuth("Muitas tentativas falhas. Aguarde um momento.");
+      else setErroAuth("Erro ao entrar. Verifique os seus dados.");
     }
   };
 
   const criarContaPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroAuth("");
-    if (!nomeRegistro || nomeRegistro.trim().length < 2) { setErroAuth("Por favor, digite um nome válido."); return; }
-    if (cpfRegistro.length < 11) { setErroAuth("Digite um CPF com 11 números."); return; }
+    if (!nomeRegistro || nomeRegistro.trim().length < 2) { setErroAuth("Por favor, introduza um nome válido."); return; }
+    if (cpfRegistro.length < 11) { setErroAuth("Introduza um CPF com 11 números."); return; }
     if (senha.length < 6) { setErroAuth("A senha deve ter no mínimo 6 caracteres."); return; }
     
     try {
@@ -180,8 +183,10 @@ export default function AppIdoso() {
         nome: nomeRegistro.trim(),
         foto: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
       });
-    } catch {
-      setErroAuth("Erro ao criar conta. E-mail já usado ou sem rede.");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (err?.code === 'auth/email-already-in-use') setErroAuth("Este e-mail já se encontra registado.");
+      else setErroAuth("Erro ao criar conta. Verifique a sua ligação.");
     }
   };
 
@@ -241,7 +246,7 @@ export default function AppIdoso() {
   };
 
   const editarNome = async () => {
-    const novoNome = prompt("Digite o seu nome:", nomeUsuario !== "Paciente" ? nomeUsuario : "");
+    const novoNome = prompt("Introduza o seu nome:", nomeUsuario !== "Paciente" ? nomeUsuario : "");
     if (novoNome && novoNome.trim() !== "") {
       setNomeUsuario(novoNome);
       await setDoc(doc(db, "pacientes", cpfAtivo), { nome: novoNome }, { merge: true });
@@ -269,27 +274,6 @@ export default function AppIdoso() {
     });
     return () => unsubscribe();
   }, [cpfAtivo, telaAtual]);
-
-  const salvarMedicoes = async () => {
-    if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
-    const dataExata = new Date().toLocaleDateString('pt-BR');
-    const horaExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    let pressaoFinal = "--";
-    if (formPressaoSis || formPressaoDia) pressaoFinal = `${formPressaoSis || "0"}/${formPressaoDia || "0"}`;
-
-    const novoRegistro = {
-      cpf: cpfAtivo, data: dataExata, hora: horaExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
-      hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
-      timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
-    };
-
-    try {
-      await addDoc(collection(db, "medicoes"), novoRegistro);
-      setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
-      setModalAberto(false);
-      setShowToast(true); setTimeout(() => setShowToast(false), 4000);
-    } catch { alert("Erro ao salvar medição."); }
-  };
 
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
@@ -323,13 +307,63 @@ export default function AppIdoso() {
     return null;
   };
 
+  const falarResumoSaude = (hgt: string, pressao: string, oxi: string, bpm: string) => {
+    if (!window.speechSynthesis) return;
+    let textoResumo = "Sinais vitais guardados com sucesso. ";
+    
+    if (hgt) {
+      const st = obterStatus("HGT", hgt)?.texto;
+      if (st) textoResumo += `A sua glicémia está ${st}. `;
+    }
+    if (pressao && pressao !== "--") {
+      const st = obterStatus("Pressão", pressao)?.texto;
+      if (st) textoResumo += `A sua tensão arterial está ${st}. `;
+    }
+    if (oxi) {
+      const st = obterStatus("SpO2", oxi)?.texto;
+      if (st) textoResumo += `A sua oxigenação está ${st}. `;
+    }
+    if (bpm) {
+      const st = obterStatus("BPM", bpm)?.texto;
+      if (st === "Alerta" || st === "Atenção") textoResumo += `Atenção, os seus batimentos estão em estado de ${st}. `;
+      else textoResumo += `Os seus batimentos cardíacos estão normais. `;
+    }
+
+    const mensagem = new SpeechSynthesisUtterance(textoResumo);
+    mensagem.lang = 'pt-PT';
+    mensagem.rate = 1.0; 
+    window.speechSynthesis.speak(mensagem);
+  };
+
+  const salvarMedicoes = async () => {
+    if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
+    const dataExata = new Date().toLocaleDateString('pt-PT');
+    const horaExata = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    let pressaoFinal = "--";
+    if (formPressaoSis || formPressaoDia) pressaoFinal = `${formPressaoSis || "0"}/${formPressaoDia || "0"}`;
+
+    const novoRegistro = {
+      cpf: cpfAtivo, data: dataExata, hora: horaExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
+      hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
+      timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
+    };
+
+    try {
+      await addDoc(collection(db, "medicoes"), novoRegistro);
+      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm); 
+      
+      setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
+      setModalAberto(false);
+      setShowToast(true); setTimeout(() => setShowToast(false), 4000);
+    } catch { alert("Erro ao guardar medição."); }
+  };
+
   const statusGlicemia = obterStatus("HGT", glicemiaAtual);
   const statusPressao = obterStatus("Pressao", pressaoAtual);
   const statusOxi = obterStatus("SpO2", oximetriaAtual);
   const statusBpm = obterStatus("BPM", batimentosAtual);
   const precisaLembrete = listaMedicoes.length === 0;
 
-  // DADOS PARA O GRÁFICO MULTIVARIÁVEL
   const dadosGraficoMultiplo = listaMedicoes.map(med => {
     let sis = null; let dia = null;
     if (med.pressao && med.pressao !== "--") {
@@ -345,8 +379,15 @@ export default function AppIdoso() {
 
   const notificacoes = [];
   if (precisaLembrete && cpfAtivo && telaAtual === 'app') {
-    notificacoes.push('Lembrete: Você ainda não registrou os sinais vitais de hoje.');
+    notificacoes.push('Lembrete: Ainda não registou os sinais vitais de hoje.');
   }
+
+  const getAnimacao = (statusObj: { texto: string, cor: string } | null) => {
+    if (!statusObj) return "";
+    if (statusObj.texto === 'Alta' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
+    if (statusObj.texto === 'Baixa') return "translate-y-[6px]";
+    return ""; 
+  };
 
   if (!isMounted || telaAtual === 'carregando') return null;
 
@@ -368,11 +409,11 @@ export default function AppIdoso() {
               {!isLoginModo && (
                 <>
                   <div>
-                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">Seu Nome</label>
+                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">O Seu Nome</label>
                     <input type="text" value={nomeRegistro} onChange={e => setNomeRegistro(e.target.value)} required className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="Ex: Sr. João" />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">Seu CPF (Apenas números)</label>
+                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">O Seu CPF (Apenas números)</label>
                     <input type="text" inputMode="numeric" pattern="[0-9]*" value={cpfRegistro} onChange={e => setCpfRegistro(e.target.value.replace(/\D/g, ''))} required maxLength={11} className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="12345678900" />
                   </div>
                 </>
@@ -386,13 +427,13 @@ export default function AppIdoso() {
                 <input type="password" value={senha} onChange={e => setSenha(e.target.value)} required minLength={6} className={`w-full p-4 rounded-xl border-2 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} placeholder="******" />
               </div>
               <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-transform active:scale-95 mt-2">
-                {isLoginModo ? "Entrar" : "Criar Minha Conta"}
+                {isLoginModo ? "Entrar" : "Criar a Minha Conta"}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button onClick={() => {setIsLoginModo(!isLoginModo); setErroAuth("");}} className="text-teal-600 dark:text-teal-400 font-semibold hover:underline text-sm">
-                {isLoginModo ? "Primeiro acesso? Cadastre-se" : "Já tem conta? Fazer Login"}
+                {isLoginModo ? "Primeiro acesso? Registe-se" : "Já tem conta? Fazer Login"}
               </button>
             </div>
           </div>
@@ -404,7 +445,7 @@ export default function AppIdoso() {
           {showToast && (
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
               <div className="bg-teal-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-bold">
-                <CheckCircle className="w-5 h-5" /> Atualização salva!
+                <CheckCircle className="w-5 h-5" /> Atualização guardada!
               </div>
             </div>
           )}
@@ -497,7 +538,7 @@ export default function AppIdoso() {
                   <div className="absolute top-0 right-0 -mt-4 -mr-4 md:-mt-10 md:-mr-10 opacity-10 pointer-events-none"><Heart className="w-40 h-40 md:w-64 md:h-64" /></div>
                   <div className="relative z-10 mb-5 md:mb-0 text-center md:text-left w-full md:w-auto">
                     <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Monitoramento Doméstico</h1>
-                    <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Sinais vitais salvos na nuvem com segurança.</p>
+                    <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Sinais vitais guardados na nuvem com segurança.</p>
                   </div>
                   <button onClick={() => setModalAberto(true)} className="relative z-10 w-full md:w-auto justify-center bg-white dark:bg-gray-800 text-teal-700 dark:text-teal-400 hover:bg-gray-50 px-6 py-3 md:px-8 md:py-4 rounded-full font-bold flex items-center gap-2 md:gap-3 transition-all hover:scale-105 active:scale-95">
                     <PlusCircle className="w-5 h-5 md:w-6 md:h-6 text-teal-500" /> <span className="text-base md:text-lg">Nova Medição</span>
@@ -508,7 +549,7 @@ export default function AppIdoso() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl"><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
+                        <div className={`bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusGlicemia)}`}><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
                         {statusGlicemia && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusGlicemia.cor}`}>{statusGlicemia.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Glicemia</p>
@@ -522,7 +563,7 @@ export default function AppIdoso() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl"><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
+                        <div className={`bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusPressao)}`}><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
                         {statusPressao && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusPressao.cor}`}>{statusPressao.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Pressão</p>
@@ -536,10 +577,10 @@ export default function AppIdoso() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
+                        <div className={`bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusOxi)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
                         {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigénio</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
@@ -550,7 +591,7 @@ export default function AppIdoso() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
+                        <div className={`bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusBpm)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
                         {statusBpm && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusBpm.cor}`}>{statusBpm.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Batimentos</p>
@@ -576,13 +617,12 @@ export default function AppIdoso() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
-                          {/* O NOVO TOOLTIP INTELIGENTE AQUI */}
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                          <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: isDarkMode ? '#9CA3AF' : '#4B5563' }} />
+                          
                           <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigénio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>
@@ -642,37 +682,39 @@ export default function AppIdoso() {
                   <button onClick={() => setModalAberto(false)} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="space-y-5 mb-6 max-h-[60vh] overflow-y-auto pr-1">
+                  
                   <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                     <label className="flex items-center gap-2 font-bold mb-2 text-sm"><Droplet className="w-4 h-4 text-red-500"/> Glicemia (HGT)</label>
                     <div className="flex items-center gap-3">
-                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formHGT} onChange={(e) => setFormHGT(e.target.value.replace(/\D/g, ''))} placeholder="000" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formHGT} onChange={(e) => setFormHGT(e.target.value.replace(/\D/g, ''))} placeholder="000" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                       <span className="text-gray-400 font-medium text-sm">mg/dL</span>
                     </div>
                   </div>
                   <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                     <label className="flex items-center gap-2 font-bold mb-2 text-sm"><Heart className="w-4 h-4 text-emerald-500"/> Pressão Arterial</label>
                     <div className="flex items-center justify-center gap-2">
-                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoSis} onChange={(e) => setFormPressaoSis(e.target.value.replace(/\D/g, ''))} placeholder="120" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoSis} onChange={(e) => setFormPressaoSis(e.target.value.replace(/\D/g, ''))} placeholder="120" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                       <span className="text-2xl text-gray-300 dark:text-gray-600 font-light">/</span>
-                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoDia} onChange={(e) => setFormPressaoDia(e.target.value.replace(/\D/g, ''))} placeholder="80" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" value={formPressaoDia} onChange={(e) => setFormPressaoDia(e.target.value.replace(/\D/g, ''))} placeholder="80" className={`w-full text-xl font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                     </div>
                   </div>
                   <div className="flex gap-3">
                     <div className={`w-1/2 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                      <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-blue-500"/> Oxigênio</label>
+                      <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-blue-500"/> Oxigénio</label>
                       <div className="flex items-center gap-1">
-                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formOxi} onChange={(e) => setFormOxi(e.target.value.replace(/\D/g, ''))} placeholder="98" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formOxi} onChange={(e) => setFormOxi(e.target.value.replace(/\D/g, ''))} placeholder="98" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                         <span className="text-gray-400 font-medium text-sm">%</span>
                       </div>
                     </div>
                     <div className={`w-1/2 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
                       <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-rose-500"/> Batimentos</label>
                       <div className="flex items-center gap-1">
-                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formBpm} onChange={(e) => setFormBpm(e.target.value.replace(/\D/g, ''))} placeholder="75" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${inputSemSetas} ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
+                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={formBpm} onChange={(e) => setFormBpm(e.target.value.replace(/\D/g, ''))} placeholder="75" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                         <span className="text-gray-400 font-medium text-xs">BPM</span>
                       </div>
                     </div>
                   </div>
+
                 </div>
                 <button onClick={salvarMedicoes} className="w-full bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all">Confirmar Dados</button>
               </div>
