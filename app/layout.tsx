@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EloVital Família",
+  title: "EloVital",
   description: "Monitoramento de saúde doméstico",
   manifest: "/manifest.json",
 };
