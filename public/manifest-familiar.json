@@ -1,0 +1,17 @@
+{
+  "name": "EloVital Família",
+  "short_name": "EloVital Fam",
+  "description": "Acompanhamento remoto de saúde e sinais vitais.",
+  "start_url": "/familiar",
+  "display": "standalone",
+  "background_color": "#F0F4F8",
+  "theme_color": "#0D9488",
+  "icons": [
+    {
+      "src": "/icon-familiar.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
