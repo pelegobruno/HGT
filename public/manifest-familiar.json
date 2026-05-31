@@ -1,23 +1,21 @@
 {
-  "name": "EloVital Família",
-  "short_name": "EloVital Fam",
-  "description": "Acompanhamento remoto de saúde e sinais vitais.",
+  "name": "EloVital",
+  "short_name": "EloVital",
+  "description": "Prontuário e acompanhamento de saúde do paciente.",
   "start_url": "/familiar",
   "display": "standalone",
-  "background_color": "#F8FAFC",
+  "background_color": "#ffffff",
   "theme_color": "#0D9488",
   "icons": [
     {
       "src": "/icon-familiar.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "src": "/icon-familiar-180.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/icon-familiar.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

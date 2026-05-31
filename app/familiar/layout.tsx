@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     icon: "/icon-familiar.png",
     apple: "/icon-familiar-180.png",
   },
+  manifest: "/manifest-familiar.json",
 };
 
 export default function FamiliarLayout({ children }: { children: React.ReactNode }) {

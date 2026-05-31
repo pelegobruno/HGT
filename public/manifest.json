@@ -1,12 +1,17 @@
 {
   "name": "EloVital",
   "short_name": "EloVital",
-  "description": "Monitoramento de Saúde Doméstico",
+  "description": "Monitoramento de Sinais Vitais.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F766E",
-  "theme_color": "#0F766E",
+  "background_color": "#ffffff",
+  "theme_color": "#0D9488",
   "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
     {
       "src": "/icon.png",
       "sizes": "512x512",
