@@ -89,7 +89,6 @@ export default function AppFamiliar() {
   const [oximetriaAtual, setOximetriaAtual] = useState("--");
   const [batimentosAtual, setBatimentosAtual] = useState("--");
 
-  // INICIALIZAÇÃO CORRIGIDA (Correção do setState síncrono)
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMounted(true);
@@ -246,8 +245,8 @@ export default function AppFamiliar() {
         <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50'}`}>
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
             <div className="flex flex-col items-center mb-8">
-              <img src="/icon-familiar.png" alt="Logo EloVital Família" className="w-20 h-20 rounded-2xl mb-4 shadow-md pointer-events-none" />
-              <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital Família</h1>
+              <img src="/icon-familiar.png" alt="Logo EloVital" className="w-20 h-20 rounded-2xl mb-4 shadow-md pointer-events-none" />
+              <h1 className="text-3xl font-extrabold text-teal-600 dark:text-teal-400">EloVital</h1>
               <p className="text-gray-600 dark:text-gray-400 text-center mt-2">Acompanhe a saúde de quem você ama.</p>
             </div>
             
@@ -275,7 +274,7 @@ export default function AppFamiliar() {
               <div className="flex items-center gap-3 text-teal-700 dark:text-teal-400">
                 <img src="/icon-familiar.png" alt="Logo" className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-contain shadow-sm pointer-events-none" />
                 <div className="flex flex-col justify-center">
-                  <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital Família</span>
+                  <span className={`text-lg md:text-xl font-extrabold tracking-tight leading-none mb-1 ${isDarkMode ? 'text-white' : 'text-teal-700'}`}>EloVital</span>
                   <span className="font-medium text-xs md:text-sm text-left flex items-center gap-1 text-gray-600 dark:text-gray-400">
                     Acompanhando: {nomeUsuario}
                   </span>
@@ -314,10 +313,10 @@ export default function AppFamiliar() {
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
             {abaAtiva === 'painel' && (
               <div className="animate-in fade-in duration-300">
-                <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl mb-6 md:mb-10 border border-teal-400/20">
+                <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row justify-between items-center mb-6 md:mb-10 border border-teal-400/20">
                   <div className="absolute top-0 right-0 -mt-4 -mr-4 md:-mt-10 md:-mr-10 opacity-10 pointer-events-none"><Heart className="w-40 h-40 md:w-64 md:h-64" /></div>
-                  <div className="relative z-10 text-center md:text-left">
-                    <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Acompanhamento Remoto</h1>
+                  <div className="relative z-10 mb-5 md:mb-0 text-center md:text-left w-full md:w-auto">
+                    <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Saúde do Paciente</h1>
                     <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Visualizando dados de {nomeUsuario.split(' ')[0]}.</p>
                   </div>
                 </div>
@@ -357,7 +356,7 @@ export default function AppFamiliar() {
                         <div className={`bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusOxi)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
                         {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigénio</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
@@ -395,11 +394,10 @@ export default function AppFamiliar() {
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                          
                           <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigénio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>

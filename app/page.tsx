@@ -108,7 +108,6 @@ export default function AppIdoso() {
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
-  // AS FUNÇÕES DE LÓGICA RESTAURADAS
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
     if (tipo === "HGT") {
@@ -148,20 +147,33 @@ export default function AppIdoso() {
     return ""; 
   };
 
+  // IA DE VOZ CENTRALIZADA E CORRIGIDA
   const emitirVozIA = (texto: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    
     window.speechSynthesis.cancel();
     const mensagem = new SpeechSynthesisUtterance(texto);
     mensagem.lang = 'pt-BR';
-    const listaVozes = window.speechSynthesis.getVoices();
-    const vozesPtBr = listaVozes.filter(v => v.lang.toLowerCase().replace('_', '-').includes('pt-br'));
-    const vozFemininaBr = vozesPtBr.find(v => {
-      const nome = v.name.toLowerCase();
-      return nome.includes('maria') || nome.includes('luciana') || nome.includes('joana') || nome.includes('female') || nome.includes('português do brasil') || nome.includes('google');
-    }) || vozesPtBr[0];
-    if (vozFemininaBr) mensagem.voice = vozFemininaBr;
-    mensagem.rate = 1.0; 
-    window.speechSynthesis.speak(mensagem);
+    
+    // NOME CORRIGIDO AQUI: definirVozEFalar
+    const definirVozEFalar = () => {
+      const listaVozes = window.speechSynthesis.getVoices();
+      const vozesPtBr = listaVozes.filter(v => v.lang.toLowerCase().replace('_', '-').includes('pt-br'));
+      const vozFemininaBr = vozesPtBr.find(v => {
+        const nome = v.name.toLowerCase();
+        return nome.includes('maria') || nome.includes('luciana') || nome.includes('joana') || nome.includes('female') || nome.includes('português do brasil') || nome.includes('google');
+      }) || vozesPtBr[0];
+      
+      if (vozFemininaBr) mensagem.voice = vozFemininaBr;
+      mensagem.rate = 1.0; 
+      window.speechSynthesis.speak(mensagem);
+    };
+
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.addEventListener('voiceschanged', definirVozEFalar, { once: true });
+    } else {
+      definirVozEFalar();
+    }
   };
 
   const falarResumoSaude = (hgt: string, pressao: string, oxi: string, bpm: string) => {
@@ -221,21 +233,26 @@ export default function AppIdoso() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (telaAtual === 'app' && !jaFalouBoasVindas && nomeUsuario !== "Paciente" && cpfAtivo) {
+    if (telaAtual === 'app' && cpfAtivo && !jaFalouBoasVindas) {
       const acionarSaudacao = () => {
         const horaAtual = new Date().getHours();
         let saudacaoPeriodo = "Bom dia";
         if (horaAtual >= 12 && horaAtual < 18) saudacaoPeriodo = "Boa tarde";
         else if (horaAtual >= 18 || horaAtual < 5) saudacaoPeriodo = "Boa noite";
-        const primeiroNome = nomeUsuario.split(' ')[0];
-        emitirVozIA(`${saudacaoPeriodo}! Seja muito bem-vindo, ${primeiroNome}. Como você está se sentindo hoje?`);
+        
+        const primeiroNome = nomeUsuario !== "Paciente" ? nomeUsuario.split(' ')[0] : "meu paciente";
+        emitirVozIA(`${saudacaoPeriodo}, ${primeiroNome}. Tudo bem?`);
       };
 
-      const agendadorVoz = setTimeout(acionarSaudacao, 800);
-      setTimeout(() => setJaFalouBoasVindas(true), 0);
-      return () => clearTimeout(agendadorVoz);
+      const timer = setTimeout(acionarSaudacao, 2000);
+      
+      setTimeout(() => {
+        setJaFalouBoasVindas(true);
+      }, 0);
+
+      return () => clearTimeout(timer);
     }
-  }, [telaAtual, nomeUsuario, jaFalouBoasVindas, cpfAtivo]);
+  }, [telaAtual, cpfAtivo, jaFalouBoasVindas, nomeUsuario]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -379,28 +396,27 @@ export default function AppIdoso() {
 
   const salvarMedicoes = async () => {
     if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
-    const dataExata = new Date().toLocaleDateString('pt-BR');
-    const horaExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dataExExata = new Date().toLocaleDateString('pt-BR');
+    const horaExExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     let pressaoFinal = "--";
     if (formPressaoSis || formPressaoDia) pressaoFinal = `${formPressaoSis || "0"}/${formPressaoDia || "0"}`;
 
     const novoRegistro = {
-      cpf: cpfAtivo, data: dataExata, hora: horaExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
+      cpf: cpfAtivo, data: dataExExata, hora: horaExExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
       hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
       timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
     };
 
     try {
       await addDoc(collection(db, "medicoes"), novoRegistro);
-      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm);
+      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm); 
       
       setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
       setModalAberto(false);
       setShowToast(true); setTimeout(() => setShowToast(false), 4000);
-    } catch { alert("Erro ao salvar medição."); }
+    } catch { alert("Erro ao guardar medição."); }
   };
 
-  // VARIÁVEIS DE ESTADO E GRÁFICO (AGORA DECLARADAS ANTES DO RETURN)
   const statusGlicemia = obterStatus("HGT", glicemiaAtual);
   const statusPressao = obterStatus("Pressao", pressaoAtual);
   const statusOxi = obterStatus("SpO2", oximetriaAtual);
@@ -463,13 +479,13 @@ export default function AppIdoso() {
                 <input type="password" value={senha} onChange={e => setSenha(e.target.value)} required minLength={6} className={`w-full p-4 rounded-xl border-2 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} placeholder="******" />
               </div>
               <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-transform active:scale-95 mt-2">
-                {isLoginModo ? "Entrar" : "Criar Minha Conta"}
+                {isLoginModo ? "Entrar" : "Criar a Minha Conta"}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button onClick={() => {setIsLoginModo(!isLoginModo); setErroAuth("");}} className="text-teal-600 dark:text-teal-400 font-semibold hover:underline text-sm">
-                {isLoginModo ? "Primeiro acesso? Cadastre-se" : "Já tem conta? Fazer Login"}
+                {isLoginModo ? "Primeiro acesso? Registe-se" : "Já tem conta? Fazer Login"}
               </button>
             </div>
           </div>
@@ -481,7 +497,7 @@ export default function AppIdoso() {
           {showToast && (
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
               <div className="bg-teal-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-bold">
-                <CheckCircle className="w-5 h-5" /> Atualização salva!
+                <CheckCircle className="w-5 h-5" /> Atualização guardada!
               </div>
             </div>
           )}
