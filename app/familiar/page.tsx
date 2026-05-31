@@ -316,7 +316,7 @@ export default function AppFamiliar() {
                 <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl mb-6 md:mb-10 border border-teal-400/20">
                   <div className="absolute top-0 right-0 -mt-4 -mr-4 md:-mt-10 md:-mr-10 opacity-10 pointer-events-none"><Heart className="w-40 h-40 md:w-64 md:h-64" /></div>
                   <div className="relative z-10 text-center md:text-left">
-                    <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Saúde do Paciente</h1>
+                    <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Prontuário do Paciente</h1>
                     <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Visualizando dados de {nomeUsuario.split(' ')[0]}.</p>
                   </div>
                 </div>

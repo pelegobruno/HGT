@@ -110,7 +110,6 @@ export default function AppIdoso() {
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
-  // LÓGICA MÉDICA CORRIGIDA E FIDEDIGNA
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
     if (tipo === "HGT") {
@@ -124,7 +123,6 @@ export default function AppIdoso() {
       const partes = valor.split('/'); if (partes.length !== 2) return null;
       const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
       
-      // Nova regra de pressão arterial: mais rigorosa e realista
       if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
       if (sis >= 140 || dia >= 90) return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
       if (sis >= 130 || dia >= 85) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
@@ -152,7 +150,7 @@ export default function AppIdoso() {
     return ""; 
   };
 
-  // IA DE VOZ
+  // IA DE VOZ CONFIGURADA
   const emitirVozIA = useCallback((texto: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     
@@ -181,36 +179,37 @@ export default function AppIdoso() {
     }
   }, []);
 
+  // LÓGICA DE FALA CIRÚRGICA (SÓ FALA O QUE FOI PREENCHIDO)
   const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string) => {
-    let textoResumo = "Os seus sinais vitais foram salvos com sucesso. ";
+    let textoResumo = "Medição salva com sucesso. ";
     
-    if (hgt) {
+    if (hgt && hgt !== "") {
       const st = obterStatus("HGT", hgt)?.texto;
-      if (st === "Alta" || st === "Alerta") textoResumo += "Alerta, sua glicemia está alta, beba bastante água. ";
-      else if (st === "Baixa") textoResumo += "Atenção, sua glicemia está baixa, procure comer algo doce rapidamente. ";
+      if (st === "Alta" || st === "Alerta") textoResumo += "Sua glicemia está alta, beba bastante água. ";
+      else if (st === "Baixa") textoResumo += "Sua glicemia está baixa, procure comer algo doce. ";
       else if (st === "Atenção") textoResumo += "Sua glicemia está um pouco acima do ideal, requer atenção. ";
-      else textoResumo += "Sua glicemia está normal. Muito bem! ";
+      else if (st === "Normal") textoResumo += "Sua glicemia está normal. Muito bem! ";
     }
     
-    if (pressaoFinal && pressaoFinal !== "--") {
-      const st = obterStatus("Pressão", pressaoFinal)?.texto;
-      if (st === "Alta") textoResumo += "Atenção, sua pressão arterial está alta, procure repousar e ficar calmo. ";
+    if (pressaoFinal && pressaoFinal !== "--" && pressaoFinal !== "/") {
+      const st = obterStatus("Pressao", pressaoFinal)?.texto; 
+      if (st === "Alta") textoResumo += "Sua pressão arterial está alta, procure repousar. ";
       else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar. ";
-      else if (st === "Atenção") textoResumo += "Sua pressão arterial está no limite da atenção. ";
-      else textoResumo += "Sua pressão arterial está excelente. ";
+      else if (st === "Atenção") textoResumo += "Sua pressão arterial requer atenção. ";
+      else if (st === "Normal") textoResumo += "Sua pressão arterial está excelente. ";
     }
     
-    if (oxi) {
+    if (oxi && oxi !== "") {
       const st = obterStatus("SpO2", oxi)?.texto;
       if (st === "Baixa" || st === "Alerta") textoResumo += "Sua oxigenação está baixa, respire fundo algumas vezes. ";
-      else if (st === "Atenção") textoResumo += "Sua oxigenação está em nível de atenção. ";
-      else textoResumo += "Sua oxigenação está ótima. ";
+      else if (st === "Atenção") textoResumo += "Sua oxigenação requer atenção. ";
+      else if (st === "Normal") textoResumo += "Sua oxigenação está ótima. ";
     }
     
-    if (bpm) {
+    if (bpm && bpm !== "") {
       const st = obterStatus("BPM", bpm)?.texto;
-      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requerem atenção, procure ficar relaxado. ";
-      else textoResumo += "Seus batimentos cardíacos estão no ritmo certo. ";
+      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requerem atenção. ";
+      else if (st === "Normal") textoResumo += "Seus batimentos estão no ritmo certo. ";
     }
 
     emitirVozIA(textoResumo);
@@ -245,7 +244,7 @@ export default function AppIdoso() {
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
-  // BOAS-VINDAS CORRIGIDAS (Não cancela mais o setTimeout)
+  // BOAS VINDAS COM NOME COMPLETO
   useEffect(() => {
     if (telaAtual === 'app' && cpfAtivo && nomeUsuario !== "Paciente" && !jaFalouBoasVindas) {
       const timer = setTimeout(() => {
@@ -254,10 +253,10 @@ export default function AppIdoso() {
         if (horaAtual >= 12 && horaAtual < 18) saudacaoPeriodo = "Boa tarde";
         else if (horaAtual >= 18 || horaAtual < 5) saudacaoPeriodo = "Boa noite";
         
-        const primeiroNome = nomeUsuario.split(' ')[0];
-        emitirVozIA(`${saudacaoPeriodo}, ${primeiroNome}. Tudo bem com você?`);
+        // Agora lê a variável inteira com o nome completo
+        const nomeCompleto = nomeUsuario;
+        emitirVozIA(`${saudacaoPeriodo}, ${nomeCompleto}. Tudo bem com você?`);
         
-        // Define que já falou apenas DEPOIS de iniciar a fala, dentro do próprio timer
         setJaFalouBoasVindas(true);
       }, 1000);
 
@@ -307,7 +306,6 @@ export default function AppIdoso() {
     e.preventDefault();
     setErroAuth("");
     
-    // Trik mágico: Toca um áudio vazio no clique para liberar a voz mais tarde (Políticas do iOS/Android)
     if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
     }
@@ -418,13 +416,13 @@ export default function AppIdoso() {
 
   const salvarMedicoes = async () => {
     if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
-    const dataExata = new Date().toLocaleDateString('pt-BR');
-    const horaExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dataExExata = new Date().toLocaleDateString('pt-BR');
+    const horaExExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     let pressaoFinal = "--";
     if (formPressaoSis && formPressaoDia) pressaoFinal = `${formPressaoSis}/${formPressaoDia}`;
 
     const novoRegistro = {
-      cpf: cpfAtivo, data: dataExata, hora: horaExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
+      cpf: cpfAtivo, data: dataExExata, hora: horaExExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
       hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
       timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
     };
