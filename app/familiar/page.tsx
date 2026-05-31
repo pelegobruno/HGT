@@ -313,9 +313,9 @@ export default function AppFamiliar() {
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
             {abaAtiva === 'painel' && (
               <div className="animate-in fade-in duration-300">
-                <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row justify-between items-center mb-6 md:mb-10 border border-teal-400/20">
+                <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl mb-6 md:mb-10 border border-teal-400/20">
                   <div className="absolute top-0 right-0 -mt-4 -mr-4 md:-mt-10 md:-mr-10 opacity-10 pointer-events-none"><Heart className="w-40 h-40 md:w-64 md:h-64" /></div>
-                  <div className="relative z-10 mb-5 md:mb-0 text-center md:text-left w-full md:w-auto">
+                  <div className="relative z-10 text-center md:text-left">
                     <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Saúde do Paciente</h1>
                     <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Visualizando dados de {nomeUsuario.split(' ')[0]}.</p>
                   </div>

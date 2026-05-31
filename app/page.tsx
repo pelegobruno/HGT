@@ -31,12 +31,14 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
             else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
           } else if (entry.dataKey === 'SIS') {
-            if (entry.value < 100 || entry.value > 139) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value >= 140) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value >= 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
           } else if (entry.dataKey === 'DIA') {
-            if (entry.value < 60 || entry.value > 89) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value > 85) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+            if (entry.value < 60) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value >= 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
+            else if (entry.value >= 85) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
           } else if (entry.dataKey === 'SpO2') {
             if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
@@ -108,6 +110,7 @@ export default function AppIdoso() {
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
+  // LÓGICA MÉDICA CORRIGIDA E FIDEDIGNA
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
     if (tipo === "HGT") {
@@ -120,10 +123,12 @@ export default function AppIdoso() {
     if (tipo === "Pressao") {
       const partes = valor.split('/'); if (partes.length !== 2) return null;
       const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
-      if (sis < 100 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      if (sis <= 130 && dia <= 85) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-      if (sis <= 139 || dia <= 89) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+      
+      // Nova regra de pressão arterial: mais rigorosa e realista
+      if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      if (sis >= 140 || dia >= 90) return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+      if (sis >= 130 || dia >= 85) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
     }
     if (tipo === "SpO2") {
       const num = parseInt(valor);
@@ -147,25 +152,25 @@ export default function AppIdoso() {
     return ""; 
   };
 
-  // IA DE VOZ CENTRALIZADA E CORRIGIDA
-  const emitirVozIA = (texto: string) => {
+  // IA DE VOZ
+  const emitirVozIA = useCallback((texto: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     
     window.speechSynthesis.cancel();
     const mensagem = new SpeechSynthesisUtterance(texto);
     mensagem.lang = 'pt-BR';
+    mensagem.pitch = 1.1; 
+    mensagem.rate = 1.0; 
     
-    // NOME CORRIGIDO AQUI: definirVozEFalar
     const definirVozEFalar = () => {
       const listaVozes = window.speechSynthesis.getVoices();
       const vozesPtBr = listaVozes.filter(v => v.lang.toLowerCase().replace('_', '-').includes('pt-br'));
       const vozFemininaBr = vozesPtBr.find(v => {
         const nome = v.name.toLowerCase();
-        return nome.includes('maria') || nome.includes('luciana') || nome.includes('joana') || nome.includes('female') || nome.includes('português do brasil') || nome.includes('google');
+        return nome.includes('luciana') || nome.includes('maria') || nome.includes('joana') || nome.includes('female') || nome.includes('google português do brasil');
       }) || vozesPtBr[0];
       
       if (vozFemininaBr) mensagem.voice = vozFemininaBr;
-      mensagem.rate = 1.0; 
       window.speechSynthesis.speak(mensagem);
     };
 
@@ -174,32 +179,40 @@ export default function AppIdoso() {
     } else {
       definirVozEFalar();
     }
-  };
+  }, []);
 
-  const falarResumoSaude = (hgt: string, pressao: string, oxi: string, bpm: string) => {
-    let textoResumo = "Sinais vitais salvos com sucesso. ";
+  const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string) => {
+    let textoResumo = "Os seus sinais vitais foram salvos com sucesso. ";
+    
     if (hgt) {
       const st = obterStatus("HGT", hgt)?.texto;
-      if (st === "Alerta" || st === "Alta") textoResumo += `Sua glicemia está alta, beba bastante água. `;
-      else if (st === "Baixa") textoResumo += `Sua glicemia está baixa, procure comer algo doce. `;
-      else textoResumo += `Sua glicemia está normal. `;
+      if (st === "Alta" || st === "Alerta") textoResumo += "Alerta, sua glicemia está alta, beba bastante água. ";
+      else if (st === "Baixa") textoResumo += "Atenção, sua glicemia está baixa, procure comer algo doce rapidamente. ";
+      else if (st === "Atenção") textoResumo += "Sua glicemia está um pouco acima do ideal, requer atenção. ";
+      else textoResumo += "Sua glicemia está normal. Muito bem! ";
     }
-    if (pressao && pressao !== "--") {
-      const st = obterStatus("Pressão", pressao)?.texto;
-      if (st === "Alta" || st === "Atenção") textoResumo += `Atenção, sua pressão arterial está alta. Procure repousar. `;
-      else if (st === "Baixa") textoResumo += `Sua pressão arterial está baixa. Levante-se devagar. `;
-      else textoResumo += `Sua pressão arterial está ótima. `;
+    
+    if (pressaoFinal && pressaoFinal !== "--") {
+      const st = obterStatus("Pressão", pressaoFinal)?.texto;
+      if (st === "Alta") textoResumo += "Atenção, sua pressão arterial está alta, procure repousar e ficar calmo. ";
+      else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar. ";
+      else if (st === "Atenção") textoResumo += "Sua pressão arterial está no limite da atenção. ";
+      else textoResumo += "Sua pressão arterial está excelente. ";
     }
+    
     if (oxi) {
       const st = obterStatus("SpO2", oxi)?.texto;
-      if (st === "Alerta" || st === "Baixa" || st === "Atenção") textoResumo += `Sua oxigenação está baixa. Respire fundo algumas vezes. `;
-      else textoResumo += `Sua oxigenação está muito boa. `;
+      if (st === "Baixa" || st === "Alerta") textoResumo += "Sua oxigenação está baixa, respire fundo algumas vezes. ";
+      else if (st === "Atenção") textoResumo += "Sua oxigenação está em nível de atenção. ";
+      else textoResumo += "Sua oxigenação está ótima. ";
     }
+    
     if (bpm) {
       const st = obterStatus("BPM", bpm)?.texto;
-      if (st === "Alerta" || st === "Atenção") textoResumo += `Seus batimentos requerem atenção. Fique calmo e relaxe. `;
-      else textoResumo += `Seus batimentos cardíacos estão no ritmo certo. `;
+      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requerem atenção, procure ficar relaxado. ";
+      else textoResumo += "Seus batimentos cardíacos estão no ritmo certo. ";
     }
+
     emitirVozIA(textoResumo);
   };
 
@@ -232,27 +245,25 @@ export default function AppIdoso() {
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
+  // BOAS-VINDAS CORRIGIDAS (Não cancela mais o setTimeout)
   useEffect(() => {
-    if (telaAtual === 'app' && cpfAtivo && !jaFalouBoasVindas) {
-      const acionarSaudacao = () => {
+    if (telaAtual === 'app' && cpfAtivo && nomeUsuario !== "Paciente" && !jaFalouBoasVindas) {
+      const timer = setTimeout(() => {
         const horaAtual = new Date().getHours();
         let saudacaoPeriodo = "Bom dia";
         if (horaAtual >= 12 && horaAtual < 18) saudacaoPeriodo = "Boa tarde";
         else if (horaAtual >= 18 || horaAtual < 5) saudacaoPeriodo = "Boa noite";
         
-        const primeiroNome = nomeUsuario !== "Paciente" ? nomeUsuario.split(' ')[0] : "meu paciente";
-        emitirVozIA(`${saudacaoPeriodo}, ${primeiroNome}. Tudo bem?`);
-      };
-
-      const timer = setTimeout(acionarSaudacao, 2000);
-      
-      setTimeout(() => {
+        const primeiroNome = nomeUsuario.split(' ')[0];
+        emitirVozIA(`${saudacaoPeriodo}, ${primeiroNome}. Tudo bem com você?`);
+        
+        // Define que já falou apenas DEPOIS de iniciar a fala, dentro do próprio timer
         setJaFalouBoasVindas(true);
-      }, 0);
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
-  }, [telaAtual, cpfAtivo, jaFalouBoasVindas, nomeUsuario]);
+  }, [telaAtual, cpfAtivo, jaFalouBoasVindas, nomeUsuario, emitirVozIA]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -295,6 +306,12 @@ export default function AppIdoso() {
   const fazerLoginPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroAuth("");
+    
+    // Trik mágico: Toca um áudio vazio no clique para liberar a voz mais tarde (Políticas do iOS/Android)
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+    }
+
     try {
       await signInWithEmailAndPassword(auth, email, senha);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -308,6 +325,11 @@ export default function AppIdoso() {
   const criarContaPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroAuth("");
+    
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+    }
+
     if (!nomeRegistro || nomeRegistro.trim().length < 2) { setErroAuth("Por favor, introduza um nome válido."); return; }
     if (cpfRegistro.length < 11) { setErroAuth("Introduza um CPF com 11 números."); return; }
     if (senha.length < 6) { setErroAuth("A senha deve ter no mínimo 6 caracteres."); return; }
@@ -396,13 +418,13 @@ export default function AppIdoso() {
 
   const salvarMedicoes = async () => {
     if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
-    const dataExExata = new Date().toLocaleDateString('pt-BR');
-    const horaExExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dataExata = new Date().toLocaleDateString('pt-BR');
+    const horaExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     let pressaoFinal = "--";
-    if (formPressaoSis || formPressaoDia) pressaoFinal = `${formPressaoSis || "0"}/${formPressaoDia || "0"}`;
+    if (formPressaoSis && formPressaoDia) pressaoFinal = `${formPressaoSis}/${formPressaoDia}`;
 
     const novoRegistro = {
-      cpf: cpfAtivo, data: dataExExata, hora: horaExExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
+      cpf: cpfAtivo, data: dataExata, hora: horaExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
       hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
       timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
     };
@@ -479,13 +501,13 @@ export default function AppIdoso() {
                 <input type="password" value={senha} onChange={e => setSenha(e.target.value)} required minLength={6} className={`w-full p-4 rounded-xl border-2 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} placeholder="******" />
               </div>
               <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-transform active:scale-95 mt-2">
-                {isLoginModo ? "Entrar" : "Criar a Minha Conta"}
+                {isLoginModo ? "Entrar" : "Criar Minha Conta"}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button onClick={() => {setIsLoginModo(!isLoginModo); setErroAuth("");}} className="text-teal-600 dark:text-teal-400 font-semibold hover:underline text-sm">
-                {isLoginModo ? "Primeiro acesso? Registe-se" : "Já tem conta? Fazer Login"}
+                {isLoginModo ? "Primeiro acesso? Cadastre-se" : "Já tem conta? Fazer Login"}
               </button>
             </div>
           </div>
@@ -497,7 +519,7 @@ export default function AppIdoso() {
           {showToast && (
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
               <div className="bg-teal-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-bold">
-                <CheckCircle className="w-5 h-5" /> Atualização guardada!
+                <CheckCircle className="w-5 h-5" /> Atualização salva!
               </div>
             </div>
           )}
@@ -670,7 +692,6 @@ export default function AppIdoso() {
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                          
                           <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
