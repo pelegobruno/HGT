@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Heart, Activity, Droplet, Search, LogOut, UserCircle, Moon, Sun } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from "firebase/firestore";
@@ -72,6 +72,8 @@ export default function AppFamiliar() {
   const [cpfAtivo, setCpfAtivo] = useState("");
   const [erroBusca, setErroBusca] = useState("");
   const [buscando, setBuscando] = useState(false);
+  
+  const [jaFalouBoasVindas, setJaFalouBoasVindas] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('temaEloVital') === 'escuro';
@@ -88,6 +90,35 @@ export default function AppFamiliar() {
   const [pressaoAtual, setPressaoAtual] = useState("--");
   const [oximetriaAtual, setOximetriaAtual] = useState("--");
   const [batimentosAtual, setBatimentosAtual] = useState("--");
+
+  // VOZ DA IA DO FAMILIAR
+  const emitirVozIA = useCallback((texto: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    
+    window.speechSynthesis.cancel();
+    const mensagem = new SpeechSynthesisUtterance(texto);
+    mensagem.lang = 'pt-BR';
+    mensagem.pitch = 1.1; 
+    mensagem.rate = 1.0; 
+    
+    const definirVozEFalar = () => {
+      const listaVozes = window.speechSynthesis.getVoices();
+      const vozesPtBr = listaVozes.filter(v => v.lang.toLowerCase().replace('_', '-').includes('pt-br'));
+      const vozFemininaBr = vozesPtBr.find(v => {
+        const nome = v.name.toLowerCase();
+        return nome.includes('luciana') || nome.includes('maria') || nome.includes('joana') || nome.includes('female') || nome.includes('google português do brasil');
+      }) || vozesPtBr[0];
+      
+      if (vozFemininaBr) mensagem.voice = vozFemininaBr;
+      window.speechSynthesis.speak(mensagem);
+    };
+
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.addEventListener('voiceschanged', definirVozEFalar, { once: true });
+    } else {
+      definirVozEFalar();
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -106,6 +137,18 @@ export default function AppFamiliar() {
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
+  // BOAS-VINDAS DO FAMILIAR
+  useEffect(() => {
+    if (telaAtual === 'app' && cpfAtivo && nomeUsuario !== "Paciente" && !jaFalouBoasVindas) {
+      const timer = setTimeout(() => {
+        emitirVozIA(`Seja bem-vindo, familiar de ${nomeUsuario}. Aqui é o lugar onde você pode acompanhar a evolução do seu familiar!`);
+        setJaFalouBoasVindas(true);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [telaAtual, cpfAtivo, jaFalouBoasVindas, nomeUsuario, emitirVozIA]);
+
   const toggleTheme = () => {
     const novoTema = !isDarkMode;
     setIsDarkMode(novoTema);
@@ -115,6 +158,11 @@ export default function AppFamiliar() {
   const buscarPaciente = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroBusca("");
+    
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+    }
+
     if (cpfBusca.length === 11) {
       setBuscando(true);
       try {
@@ -142,6 +190,7 @@ export default function AppFamiliar() {
     setTelaAtual('busca');
     setCpfAtivo('');
     setCpfBusca('');
+    setJaFalouBoasVindas(false); 
     localStorage.removeItem('familiarCpfAtivo'); 
   };
 

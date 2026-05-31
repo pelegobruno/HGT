@@ -1,23 +1,14 @@
-import { Metadata } from 'next';
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'EloVital Família',
-  description: 'Acompanhe a saúde de quem você ama.',
-  manifest: '/manifest-familiar.json',
+  title: "EloVital",
+  description: "Acompanhamento de Saúde",
   icons: {
-    apple: '/icon-familiar-180.png',
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'EloVital Família',
+    icon: "/icon-familiar.png",
+    apple: "/icon-familiar-180.png",
   },
 };
 
-export default function FamiliarLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function FamiliarLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
