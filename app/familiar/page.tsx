@@ -14,7 +14,6 @@ interface Medicao {
   timestamp?: any;
 }
 
-// TOOLTIP INTELIGENTE COM AVALIAÇÃO MÉDICA
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
   if (active && payload && payload.length) {
@@ -68,13 +67,12 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
 
 export default function AppFamiliar() {
   const [isMounted, setIsMounted] = useState(false);
-  const [telaAtual, setTelaAtual] = useState<'busca' | 'app'>('busca');
+  const [telaAtual, setTelaAtual] = useState<string>('busca');
   const [cpfBusca, setCpfBusca] = useState("");
   const [cpfAtivo, setCpfAtivo] = useState("");
   const [erroBusca, setErroBusca] = useState("");
   const [buscando, setBuscando] = useState(false);
 
-  // MODO ESCURO
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('temaEloVital') === 'escuro';
     return false;
@@ -91,7 +89,7 @@ export default function AppFamiliar() {
   const [oximetriaAtual, setOximetriaAtual] = useState("--");
   const [batimentosAtual, setBatimentosAtual] = useState("--");
 
-  // INICIALIZAÇÃO E MEMÓRIA
+  // INICIALIZAÇÃO CORRIGIDA (Correção do setState síncrono)
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMounted(true);
@@ -232,12 +230,19 @@ export default function AppFamiliar() {
     };
   });
 
+  const getAnimacao = (statusObj: { texto: string, cor: string } | null) => {
+    if (!statusObj) return "";
+    if (statusObj.texto === 'Alta' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
+    if (statusObj.texto === 'Baixa') return "translate-y-[6px]";
+    return ""; 
+  };
+
   if (!isMounted) return null;
 
   return (
     <div className={`min-h-screen font-sans antialiased select-none [-webkit-touch-callout:none] transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-gray-100' : 'bg-[#F8FAFC] text-gray-800'}`} onContextMenu={(e) => e.preventDefault()}>
       
-      {telaAtual === 'busca' && (
+      {String(telaAtual) === 'busca' && (
         <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50'}`}>
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
             <div className="flex flex-col items-center mb-8">
@@ -263,7 +268,7 @@ export default function AppFamiliar() {
         </div>
       )}
 
-      {telaAtual === 'app' && (
+      {String(telaAtual) === 'app' && (
         <>
           <nav className={`border-b px-4 md:px-6 py-4 sticky top-0 z-30 shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
             <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -321,7 +326,7 @@ export default function AppFamiliar() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl"><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
+                        <div className={`bg-red-50 dark:bg-red-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusGlicemia)}`}><Droplet className="w-4 h-4 md:w-6 md:h-6 text-red-500 dark:text-red-400" /></div>
                         {statusGlicemia && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusGlicemia.cor}`}>{statusGlicemia.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Glicemia</p>
@@ -335,7 +340,7 @@ export default function AppFamiliar() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl"><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
+                        <div className={`bg-emerald-50 dark:bg-emerald-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusPressao)}`}><Heart className="w-4 h-4 md:w-6 md:h-6 text-emerald-500 dark:text-emerald-400" /></div>
                         {statusPressao && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusPressao.cor}`}>{statusPressao.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Pressão</p>
@@ -349,10 +354,10 @@ export default function AppFamiliar() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
+                        <div className={`bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusOxi)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
                         {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigénio</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
@@ -363,7 +368,7 @@ export default function AppFamiliar() {
                   <div className={`p-4 md:p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-colors ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
                     <div>
                       <div className="flex justify-between items-start mb-2 md:mb-4">
-                        <div className="bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl"><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
+                        <div className={`bg-rose-50 dark:bg-rose-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusBpm)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-rose-500 dark:text-rose-400" /></div>
                         {statusBpm && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusBpm.cor}`}>{statusBpm.texto}</span>}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Batimentos</p>
@@ -389,12 +394,12 @@ export default function AppFamiliar() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
-                          {/* O NOVO TOOLTIP INTELIGENTE AQUI */}
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                          
                           <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigénio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>

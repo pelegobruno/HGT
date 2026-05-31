@@ -69,7 +69,7 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
 
 export default function AppIdoso() {
   const [isMounted, setIsMounted] = useState(false);
-  const [telaAtual, setTelaAtual] = useState<'carregando' | 'auth' | 'app'>('carregando');
+  const [telaAtual, setTelaAtual] = useState<string>('carregando');
   const [usuario, setUsuario] = useState<User | null>(null);
   const [cpfAtivo, setCpfAtivo] = useState<string>(""); 
   
@@ -86,9 +86,110 @@ export default function AppIdoso() {
   });
   const [showToast, setShowToast] = useState(false);
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
+  const [jaFalouBoasVindas, setJaFalouBoasVindas] = useState(false);
 
   const [fotoPerfil, setFotoPerfil] = useState("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80");
   const [nomeUsuario, setNomeUsuario] = useState("Paciente");
+
+  const [abaAtiva, setAbaAtiva] = useState<'painel' | 'historico'>('painel');
+  const [listaMedicoes, setListaMedicoes] = useState<Medicao[]>([]);
+  
+  const [glicemiaAtual, setGlicemiaAtual] = useState("--");
+  const [pressaoAtual, setPressaoAtual] = useState("--");
+  const [oximetriaAtual, setOximetriaAtual] = useState("--");
+  const [batimentosAtual, setBatimentosAtual] = useState("--");
+
+  const [modalAberto, setModalAberto] = useState(false);
+  const [formHGT, setFormHGT] = useState("");
+  const [formPressaoSis, setFormPressaoSis] = useState(""); 
+  const [formPressaoDia, setFormPressaoDia] = useState(""); 
+  const [formOxi, setFormOxi] = useState("");
+  const [formBpm, setFormBpm] = useState("");
+
+  const inputFotoRef = useRef<HTMLInputElement>(null);
+
+  // AS FUNÇÕES DE LÓGICA RESTAURADAS
+  const obterStatus = (tipo: string, valor: string) => {
+    if (!valor || valor === "--") return null;
+    if (tipo === "HGT") {
+      const num = parseInt(valor);
+      if (num < 70) return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+      if (num <= 130) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+      if (num <= 180) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+    }
+    if (tipo === "Pressao") {
+      const partes = valor.split('/'); if (partes.length !== 2) return null;
+      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
+      if (sis < 100 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      if (sis <= 130 && dia <= 85) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+      if (sis <= 139 || dia <= 89) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+    }
+    if (tipo === "SpO2") {
+      const num = parseInt(valor);
+      if (num >= 95) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+      if (num >= 90) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+    }
+    if (tipo === "BPM") {
+      const num = parseInt(valor);
+      if (num >= 60 && num <= 100) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+      if ((num >= 50 && num < 60) || (num > 100 && num <= 120)) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Alerta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+    }
+    return null;
+  };
+
+  const getAnimacao = (statusObj: { texto: string, cor: string } | null) => {
+    if (!statusObj) return "";
+    if (statusObj.texto === 'Alta' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
+    if (statusObj.texto === 'Baixa') return "translate-y-[6px]";
+    return ""; 
+  };
+
+  const emitirVozIA = (texto: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const mensagem = new SpeechSynthesisUtterance(texto);
+    mensagem.lang = 'pt-BR';
+    const listaVozes = window.speechSynthesis.getVoices();
+    const vozesPtBr = listaVozes.filter(v => v.lang.toLowerCase().replace('_', '-').includes('pt-br'));
+    const vozFemininaBr = vozesPtBr.find(v => {
+      const nome = v.name.toLowerCase();
+      return nome.includes('maria') || nome.includes('luciana') || nome.includes('joana') || nome.includes('female') || nome.includes('português do brasil') || nome.includes('google');
+    }) || vozesPtBr[0];
+    if (vozFemininaBr) mensagem.voice = vozFemininaBr;
+    mensagem.rate = 1.0; 
+    window.speechSynthesis.speak(mensagem);
+  };
+
+  const falarResumoSaude = (hgt: string, pressao: string, oxi: string, bpm: string) => {
+    let textoResumo = "Sinais vitais salvos com sucesso. ";
+    if (hgt) {
+      const st = obterStatus("HGT", hgt)?.texto;
+      if (st === "Alerta" || st === "Alta") textoResumo += `Sua glicemia está alta, beba bastante água. `;
+      else if (st === "Baixa") textoResumo += `Sua glicemia está baixa, procure comer algo doce. `;
+      else textoResumo += `Sua glicemia está normal. `;
+    }
+    if (pressao && pressao !== "--") {
+      const st = obterStatus("Pressão", pressao)?.texto;
+      if (st === "Alta" || st === "Atenção") textoResumo += `Atenção, sua pressão arterial está alta. Procure repousar. `;
+      else if (st === "Baixa") textoResumo += `Sua pressão arterial está baixa. Levante-se devagar. `;
+      else textoResumo += `Sua pressão arterial está ótima. `;
+    }
+    if (oxi) {
+      const st = obterStatus("SpO2", oxi)?.texto;
+      if (st === "Alerta" || st === "Baixa" || st === "Atenção") textoResumo += `Sua oxigenação está baixa. Respire fundo algumas vezes. `;
+      else textoResumo += `Sua oxigenação está muito boa. `;
+    }
+    if (bpm) {
+      const st = obterStatus("BPM", bpm)?.texto;
+      if (st === "Alerta" || st === "Atenção") textoResumo += `Seus batimentos requerem atenção. Fique calmo e relaxe. `;
+      else textoResumo += `Seus batimentos cardíacos estão no ritmo certo. `;
+    }
+    emitirVozIA(textoResumo);
+  };
 
   const sair = useCallback(() => {
     signOut(auth);
@@ -96,6 +197,7 @@ export default function AppIdoso() {
     setCpfAtivo("");
     setErroAuth("");
     setMostrarNotificacoes(false);
+    setJaFalouBoasVindas(false);
     setTelaAtual('auth');
   }, []);
 
@@ -117,6 +219,23 @@ export default function AppIdoso() {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (telaAtual === 'app' && !jaFalouBoasVindas && nomeUsuario !== "Paciente" && cpfAtivo) {
+      const acionarSaudacao = () => {
+        const horaAtual = new Date().getHours();
+        let saudacaoPeriodo = "Bom dia";
+        if (horaAtual >= 12 && horaAtual < 18) saudacaoPeriodo = "Boa tarde";
+        else if (horaAtual >= 18 || horaAtual < 5) saudacaoPeriodo = "Boa noite";
+        const primeiroNome = nomeUsuario.split(' ')[0];
+        emitirVozIA(`${saudacaoPeriodo}! Seja muito bem-vindo, ${primeiroNome}. Como você está se sentindo hoje?`);
+      };
+
+      const agendadorVoz = setTimeout(acionarSaudacao, 800);
+      setTimeout(() => setJaFalouBoasVindas(true), 0);
+      return () => clearTimeout(agendadorVoz);
+    }
+  }, [telaAtual, nomeUsuario, jaFalouBoasVindas, cpfAtivo]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -196,23 +315,6 @@ export default function AppIdoso() {
     localStorage.setItem('temaEloVital', novoTema ? 'escuro' : 'claro');
   };
 
-  const [abaAtiva, setAbaAtiva] = useState<'painel' | 'historico'>('painel');
-  const [listaMedicoes, setListaMedicoes] = useState<Medicao[]>([]);
-  
-  const [glicemiaAtual, setGlicemiaAtual] = useState("--");
-  const [pressaoAtual, setPressaoAtual] = useState("--");
-  const [oximetriaAtual, setOximetriaAtual] = useState("--");
-  const [batimentosAtual, setBatimentosAtual] = useState("--");
-
-  const [modalAberto, setModalAberto] = useState(false);
-  const [formHGT, setFormHGT] = useState("");
-  const [formPressaoSis, setFormPressaoSis] = useState(""); 
-  const [formPressaoDia, setFormPressaoDia] = useState(""); 
-  const [formOxi, setFormOxi] = useState("");
-  const [formBpm, setFormBpm] = useState("");
-
-  const inputFotoRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (!cpfAtivo || telaAtual !== 'app') return;
     const unsubPerfil = onSnapshot(doc(db, "pacientes", cpfAtivo), (documento) => {
@@ -275,70 +377,10 @@ export default function AppIdoso() {
     return () => unsubscribe();
   }, [cpfAtivo, telaAtual]);
 
-  const obterStatus = (tipo: string, valor: string) => {
-    if (!valor || valor === "--") return null;
-    if (tipo === "HGT") {
-      const num = parseInt(valor);
-      if (num < 70) return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-      if (num <= 130) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-      if (num <= 180) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-    }
-    if (tipo === "Pressao") {
-      const partes = valor.split('/'); if (partes.length !== 2) return null;
-      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
-      if (sis < 100 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      if (sis <= 130 && dia <= 85) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-      if (sis <= 139 || dia <= 89) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-    }
-    if (tipo === "SpO2") {
-      const num = parseInt(valor);
-      if (num >= 95) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-      if (num >= 90) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-    }
-    if (tipo === "BPM") {
-      const num = parseInt(valor);
-      if (num >= 60 && num <= 100) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-      if ((num >= 50 && num < 60) || (num > 100 && num <= 120)) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Alerta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-    }
-    return null;
-  };
-
-  const falarResumoSaude = (hgt: string, pressao: string, oxi: string, bpm: string) => {
-    if (!window.speechSynthesis) return;
-    let textoResumo = "Sinais vitais guardados com sucesso. ";
-    
-    if (hgt) {
-      const st = obterStatus("HGT", hgt)?.texto;
-      if (st) textoResumo += `A sua glicémia está ${st}. `;
-    }
-    if (pressao && pressao !== "--") {
-      const st = obterStatus("Pressão", pressao)?.texto;
-      if (st) textoResumo += `A sua tensão arterial está ${st}. `;
-    }
-    if (oxi) {
-      const st = obterStatus("SpO2", oxi)?.texto;
-      if (st) textoResumo += `A sua oxigenação está ${st}. `;
-    }
-    if (bpm) {
-      const st = obterStatus("BPM", bpm)?.texto;
-      if (st === "Alerta" || st === "Atenção") textoResumo += `Atenção, os seus batimentos estão em estado de ${st}. `;
-      else textoResumo += `Os seus batimentos cardíacos estão normais. `;
-    }
-
-    const mensagem = new SpeechSynthesisUtterance(textoResumo);
-    mensagem.lang = 'pt-PT';
-    mensagem.rate = 1.0; 
-    window.speechSynthesis.speak(mensagem);
-  };
-
   const salvarMedicoes = async () => {
     if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
-    const dataExata = new Date().toLocaleDateString('pt-PT');
-    const horaExata = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const dataExata = new Date().toLocaleDateString('pt-BR');
+    const horaExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     let pressaoFinal = "--";
     if (formPressaoSis || formPressaoDia) pressaoFinal = `${formPressaoSis || "0"}/${formPressaoDia || "0"}`;
 
@@ -350,14 +392,15 @@ export default function AppIdoso() {
 
     try {
       await addDoc(collection(db, "medicoes"), novoRegistro);
-      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm); 
+      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm);
       
       setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
       setModalAberto(false);
       setShowToast(true); setTimeout(() => setShowToast(false), 4000);
-    } catch { alert("Erro ao guardar medição."); }
+    } catch { alert("Erro ao salvar medição."); }
   };
 
+  // VARIÁVEIS DE ESTADO E GRÁFICO (AGORA DECLARADAS ANTES DO RETURN)
   const statusGlicemia = obterStatus("HGT", glicemiaAtual);
   const statusPressao = obterStatus("Pressao", pressaoAtual);
   const statusOxi = obterStatus("SpO2", oximetriaAtual);
@@ -379,15 +422,8 @@ export default function AppIdoso() {
 
   const notificacoes = [];
   if (precisaLembrete && cpfAtivo && telaAtual === 'app') {
-    notificacoes.push('Lembrete: Ainda não registou os sinais vitais de hoje.');
+    notificacoes.push('Lembrete: Você ainda não registrou os sinais vitais de hoje.');
   }
-
-  const getAnimacao = (statusObj: { texto: string, cor: string } | null) => {
-    if (!statusObj) return "";
-    if (statusObj.texto === 'Alta' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
-    if (statusObj.texto === 'Baixa') return "translate-y-[6px]";
-    return ""; 
-  };
 
   if (!isMounted || telaAtual === 'carregando') return null;
 
@@ -409,11 +445,11 @@ export default function AppIdoso() {
               {!isLoginModo && (
                 <>
                   <div>
-                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">O Seu Nome</label>
+                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">Seu Nome</label>
                     <input type="text" value={nomeRegistro} onChange={e => setNomeRegistro(e.target.value)} required className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="Ex: Sr. João" />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">O Seu CPF (Apenas números)</label>
+                    <label className="block text-sm font-bold mb-2 text-teal-600 dark:text-teal-400">Seu CPF (Apenas números)</label>
                     <input type="text" inputMode="numeric" pattern="[0-9]*" value={cpfRegistro} onChange={e => setCpfRegistro(e.target.value.replace(/\D/g, ''))} required maxLength={11} className={`w-full p-4 rounded-xl border-2 border-teal-500/50 bg-teal-50/30 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-teal-900/20 text-white' : 'text-gray-900'}`} placeholder="12345678900" />
                   </div>
                 </>
@@ -427,13 +463,13 @@ export default function AppIdoso() {
                 <input type="password" value={senha} onChange={e => setSenha(e.target.value)} required minLength={6} className={`w-full p-4 rounded-xl border-2 focus:border-teal-500 outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} placeholder="******" />
               </div>
               <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-transform active:scale-95 mt-2">
-                {isLoginModo ? "Entrar" : "Criar a Minha Conta"}
+                {isLoginModo ? "Entrar" : "Criar Minha Conta"}
               </button>
             </form>
 
             <div className="mt-6 text-center">
               <button onClick={() => {setIsLoginModo(!isLoginModo); setErroAuth("");}} className="text-teal-600 dark:text-teal-400 font-semibold hover:underline text-sm">
-                {isLoginModo ? "Primeiro acesso? Registe-se" : "Já tem conta? Fazer Login"}
+                {isLoginModo ? "Primeiro acesso? Cadastre-se" : "Já tem conta? Fazer Login"}
               </button>
             </div>
           </div>
@@ -445,7 +481,7 @@ export default function AppIdoso() {
           {showToast && (
             <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
               <div className="bg-teal-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-bold">
-                <CheckCircle className="w-5 h-5" /> Atualização guardada!
+                <CheckCircle className="w-5 h-5" /> Atualização salva!
               </div>
             </div>
           )}
@@ -538,7 +574,7 @@ export default function AppIdoso() {
                   <div className="absolute top-0 right-0 -mt-4 -mr-4 md:-mt-10 md:-mr-10 opacity-10 pointer-events-none"><Heart className="w-40 h-40 md:w-64 md:h-64" /></div>
                   <div className="relative z-10 mb-5 md:mb-0 text-center md:text-left w-full md:w-auto">
                     <h1 className="text-2xl md:text-4xl font-extrabold mb-1 tracking-tight">Monitoramento Doméstico</h1>
-                    <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Sinais vitais guardados na nuvem com segurança.</p>
+                    <p className="text-teal-50 text-sm md:text-lg max-w-lg font-medium opacity-90">Sinais vitais salvos na nuvem com segurança.</p>
                   </div>
                   <button onClick={() => setModalAberto(true)} className="relative z-10 w-full md:w-auto justify-center bg-white dark:bg-gray-800 text-teal-700 dark:text-teal-400 hover:bg-gray-50 px-6 py-3 md:px-8 md:py-4 rounded-full font-bold flex items-center gap-2 md:gap-3 transition-all hover:scale-105 active:scale-95">
                     <PlusCircle className="w-5 h-5 md:w-6 md:h-6 text-teal-500" /> <span className="text-base md:text-lg">Nova Medição</span>
@@ -580,7 +616,7 @@ export default function AppIdoso() {
                         <div className={`bg-blue-50 dark:bg-blue-950/30 p-2 md:p-3 rounded-xl transition-all duration-700 ease-in-out ${getAnimacao(statusOxi)}`}><Activity className="w-4 h-4 md:w-6 md:h-6 text-blue-500 dark:text-blue-400" /></div>
                         {statusOxi && <span className={`px-2 py-0.5 md:py-1 rounded-full text-[9px] md:text-xs font-bold whitespace-nowrap ${statusOxi.cor}`}>{statusOxi.texto}</span>}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigénio</p>
+                      <p className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-base mb-1 truncate">Oxigênio</p>
                     </div>
                     <div className="flex items-baseline gap-1 md:gap-2 mt-1">
                       <h3 className={`text-xl md:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{oximetriaAtual}</h3>
@@ -622,7 +658,7 @@ export default function AppIdoso() {
                           <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigénio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                           <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                         </LineChart>
                       </ResponsiveContainer>
@@ -700,7 +736,7 @@ export default function AppIdoso() {
                   </div>
                   <div className="flex gap-3">
                     <div className={`w-1/2 p-4 rounded-2xl border ${isDarkMode ? 'bg-gray-900/40 border-gray-700' : 'bg-gray-50 border-gray-100'}`}>
-                      <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-blue-500"/> Oxigénio</label>
+                      <label className="flex items-center gap-1 font-bold mb-2 text-xs"><Activity className="w-4 h-4 text-blue-500"/> Oxigênio</label>
                       <div className="flex items-center gap-1">
                         <input type="text" inputMode="numeric" pattern="[0-9]*" value={formOxi} onChange={(e) => setFormOxi(e.target.value.replace(/\D/g, ''))} placeholder="98" className={`w-full text-lg font-black text-center rounded-xl py-2 border-2 focus:border-teal-500 focus:outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`} />
                         <span className="text-gray-400 font-medium text-sm">%</span>
