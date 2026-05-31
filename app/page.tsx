@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 import { Heart, Activity, Droplet, PlusCircle, X, Bell, Camera, AlertCircle, Edit2, Moon, Sun, CheckCircle, LogOut, UserCircle } from 'lucide-react';
 
 import { collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDoc } from "firebase/firestore";
@@ -30,21 +30,29 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
             if (entry.value < 70 || entry.value > 180) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
             else if (entry.value > 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
-          } else if (entry.dataKey === 'SIS') {
-            if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value >= 140) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value >= 130) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+          } 
+          else if (entry.dataKey === 'SIS') {
+            if (entry.value > 180) { status = "Crise"; colorBg = "bg-red-200"; colorText = "text-red-900"; }
+            else if (entry.value >= 160) { status = "Estágio 2"; colorBg = "bg-orange-200"; colorText = "text-orange-900"; }
+            else if (entry.value >= 140) { status = "Estágio 1"; colorBg = "bg-amber-200"; colorText = "text-amber-900"; }
+            else if (entry.value >= 120) { status = "Pré-hipert."; colorBg = "bg-yellow-200"; colorText = "text-yellow-900"; }
+            else if (entry.value < 90) { status = "Baixa"; colorBg = "bg-blue-100"; colorText = "text-blue-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
-          } else if (entry.dataKey === 'DIA') {
-            if (entry.value < 60) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value >= 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
-            else if (entry.value >= 85) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
+          } 
+          else if (entry.dataKey === 'DIA') {
+            if (entry.value > 110) { status = "Crise"; colorBg = "bg-red-200"; colorText = "text-red-900"; }
+            else if (entry.value >= 100) { status = "Estágio 2"; colorBg = "bg-orange-200"; colorText = "text-orange-900"; }
+            else if (entry.value >= 90) { status = "Estágio 1"; colorBg = "bg-amber-200"; colorText = "text-amber-900"; }
+            else if (entry.value >= 80) { status = "Pré-hipert."; colorBg = "bg-yellow-200"; colorText = "text-yellow-900"; }
+            else if (entry.value < 60) { status = "Baixa"; colorBg = "bg-blue-100"; colorText = "text-blue-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
-          } else if (entry.dataKey === 'SpO2') {
+          } 
+          else if (entry.dataKey === 'SpO2') {
             if (entry.value < 90) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
             else if (entry.value < 95) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
-          } else if (entry.dataKey === 'BPM') {
+          } 
+          else if (entry.dataKey === 'BPM') {
             if (entry.value < 50 || entry.value > 120) { status = "Alerta"; colorBg = "bg-red-100"; colorText = "text-red-700"; }
             else if (entry.value < 60 || entry.value > 100) { status = "Atenção"; colorBg = "bg-amber-100"; colorText = "text-amber-700"; }
             else { status = "Normal"; colorBg = "bg-green-100"; colorText = "text-green-700"; }
@@ -67,6 +75,47 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
     );
   }
   return null;
+};
+
+// COMPONENTE QUE COLORE AS BOLINHAS DO GRÁFICO DINAMICAMENTE
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomDot = (props: any) => {
+  const { cx, cy, value, dataKey, isDarkMode } = props;
+  if (value === null || value === undefined) return null;
+
+  let dotColor = "#8884d8"; 
+
+  if (dataKey === 'HGT') {
+    if (value < 70 || value > 180) dotColor = "#ef4444"; // Vermelho
+    else if (value > 130) dotColor = "#f59e0b"; // Amarelo
+    else dotColor = "#22c55e"; // Verde
+  } else if (dataKey === 'SIS') {
+    if (value > 180) dotColor = "#ef4444"; // Crise
+    else if (value >= 160) dotColor = "#f97316"; // Estagio 2 (Laranja)
+    else if (value >= 140) dotColor = "#f59e0b"; // Estagio 1 (Âmbar)
+    else if (value >= 120) dotColor = "#eab308"; // Pre-hipert (Amarelo)
+    else if (value < 90) dotColor = "#3b82f6"; // Baixa (Azul)
+    else dotColor = "#22c55e"; // Normal
+  } else if (dataKey === 'DIA') {
+    if (value > 110) dotColor = "#ef4444"; 
+    else if (value >= 100) dotColor = "#f97316"; 
+    else if (value >= 90) dotColor = "#f59e0b"; 
+    else if (value >= 80) dotColor = "#eab308"; 
+    else if (value < 60) dotColor = "#3b82f6"; 
+    else dotColor = "#22c55e"; 
+  } else if (dataKey === 'SpO2') {
+    if (value < 90) dotColor = "#ef4444";
+    else if (value < 95) dotColor = "#f59e0b";
+    else dotColor = "#22c55e";
+  } else if (dataKey === 'BPM') {
+    if (value < 50 || value > 120) dotColor = "#ef4444";
+    else if (value < 60 || value > 100) dotColor = "#f59e0b";
+    else dotColor = "#22c55e";
+  }
+
+  return (
+    <circle cx={cx} cy={cy} r={5} fill={dotColor} stroke={isDarkMode ? '#1f2937' : '#ffffff'} strokeWidth={1.5} />
+  );
 };
 
 export default function AppIdoso() {
@@ -112,6 +161,20 @@ export default function AppIdoso() {
 
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
+    
+    if (tipo === "Pressao") {
+      const partes = valor.split('/'); if (partes.length !== 2) return null;
+      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
+      
+      if (sis > 180 || dia > 110) return { texto: "Crise Hipertensiva", cor: "bg-red-200 text-red-900 dark:bg-red-900/60 dark:text-red-300" };
+      if (sis >= 160 || dia >= 100) return { texto: "Hipertensão Estágio 2", cor: "bg-orange-200 text-orange-900 dark:bg-orange-900/50 dark:text-orange-400" };
+      if (sis >= 140 || dia >= 90) return { texto: "Hipertensão Estágio 1", cor: "bg-amber-200 text-amber-900 dark:bg-amber-900/50 dark:text-amber-400" };
+      if (sis >= 120 || dia >= 80) return { texto: "Pré-hipertensão", cor: "bg-yellow-200 text-yellow-900 dark:bg-yellow-900/50 dark:text-yellow-400" };
+      if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" };
+      
+      return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+    }
+    
     if (tipo === "HGT") {
       const num = parseInt(valor);
       if (num < 70) return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
@@ -119,15 +182,7 @@ export default function AppIdoso() {
       if (num <= 180) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
       return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
     }
-    if (tipo === "Pressao") {
-      const partes = valor.split('/'); if (partes.length !== 2) return null;
-      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
-      
-      if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      if (sis >= 140 || dia >= 90) return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
-      if (sis >= 130 || dia >= 85) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
-      return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-    }
+    
     if (tipo === "SpO2") {
       const num = parseInt(valor);
       if (num >= 95) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
@@ -145,12 +200,11 @@ export default function AppIdoso() {
 
   const getAnimacao = (statusObj: { texto: string, cor: string } | null) => {
     if (!statusObj) return "";
-    if (statusObj.texto === 'Alta' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
+    if (statusObj.texto === 'Alta' || statusObj.texto === 'Crise Hipertensiva' || statusObj.texto === 'Hipertensão Estágio 2' || statusObj.texto === 'Hipertensão Estágio 1' || statusObj.texto === 'Alerta') return "translate-y-[-6px]";
     if (statusObj.texto === 'Baixa') return "translate-y-[6px]";
     return ""; 
   };
 
-  // IA DE VOZ CONFIGURADA
   const emitirVozIA = useCallback((texto: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     
@@ -179,7 +233,6 @@ export default function AppIdoso() {
     }
   }, []);
 
-  // LÓGICA DE FALA CIRÚRGICA (SÓ FALA O QUE FOI PREENCHIDO)
   const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string) => {
     let textoResumo = "Medição salva com sucesso. ";
     
@@ -193,10 +246,13 @@ export default function AppIdoso() {
     
     if (pressaoFinal && pressaoFinal !== "--" && pressaoFinal !== "/") {
       const st = obterStatus("Pressao", pressaoFinal)?.texto; 
-      if (st === "Alta") textoResumo += "Sua pressão arterial está alta, procure repousar. ";
-      else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar. ";
-      else if (st === "Atenção") textoResumo += "Sua pressão arterial requer atenção. ";
-      else if (st === "Normal") textoResumo += "Sua pressão arterial está excelente. ";
+      
+      if (st === "Crise Hipertensiva") textoResumo += "Alerta máximo! Sua pressão arterial indica crise hipertensiva. Procure ajuda médica imediatamente. ";
+      else if (st === "Hipertensão Estágio 2") textoResumo += "Atenção! Sua pressão arterial está muito elevada, indicando estágio dois. Procure repousar. ";
+      else if (st === "Hipertensão Estágio 1") textoResumo += "Sua pressão arterial está alta, indicando estágio um. Requer acompanhamento. ";
+      else if (st === "Pré-hipertensão") textoResumo += "Sua pressão arterial indica pré-hipertensão. Fique de olho e cuide da alimentação. ";
+      else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar para não sentir tontura. ";
+      else if (st === "Normal") textoResumo += "Sua pressão arterial está normal. Excelente! ";
     }
     
     if (oxi && oxi !== "") {
@@ -208,7 +264,7 @@ export default function AppIdoso() {
     
     if (bpm && bpm !== "") {
       const st = obterStatus("BPM", bpm)?.texto;
-      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requerem atenção. ";
+      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requer atenção. ";
       else if (st === "Normal") textoResumo += "Seus batimentos estão no ritmo certo. ";
     }
 
@@ -244,7 +300,6 @@ export default function AppIdoso() {
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
-  // BOAS VINDAS COM NOME COMPLETO
   useEffect(() => {
     if (telaAtual === 'app' && cpfAtivo && nomeUsuario !== "Paciente" && !jaFalouBoasVindas) {
       const timer = setTimeout(() => {
@@ -253,7 +308,6 @@ export default function AppIdoso() {
         if (horaAtual >= 12 && horaAtual < 18) saudacaoPeriodo = "Boa tarde";
         else if (horaAtual >= 18 || horaAtual < 5) saudacaoPeriodo = "Boa noite";
         
-        // Agora lê a variável inteira com o nome completo
         const nomeCompleto = nomeUsuario;
         emitirVozIA(`${saudacaoPeriodo}, ${nomeCompleto}. Tudo bem com você?`);
         
@@ -690,11 +744,17 @@ export default function AppIdoso() {
                           <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} dy={10} />
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                          <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                          <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          
+                          <ReferenceArea y1={180} fill="#EF4444" fillOpacity={0.05} />
+                          <ReferenceArea y2={60} fill="#3B82F6" fillOpacity={0.05} />
+                          <ReferenceLine y={180} stroke="#EF4444" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'ALERTA MÁXIMO', fill: '#EF4444', fontSize: 10, fontWeight: 'bold' }} />
+                          <ReferenceLine y={60} stroke="#3B82F6" strokeDasharray="3 3" label={{ position: 'insideBottomLeft', value: 'ALERTA MÍNIMO', fill: '#3B82F6', fontSize: 10, fontWeight: 'bold' }} />
+
+                          <Line connectNulls type="monotone" dataKey="HGT" name="Glicemia" stroke="#0D9488" strokeWidth={3} dot={(props) => <CustomDot {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          <Line connectNulls type="monotone" dataKey="SIS" name="Pressão Alta" stroke="#10B981" strokeWidth={3} dot={(props) => <CustomDot {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          <Line connectNulls type="monotone" dataKey="DIA" name="Pressão Baixa" stroke="#34D399" strokeWidth={3} dot={(props) => <CustomDot {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          <Line connectNulls type="monotone" dataKey="SpO2" name="Oxigênio" stroke="#3B82F6" strokeWidth={3} dot={(props) => <CustomDot {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
+                          <Line connectNulls type="monotone" dataKey="BPM" name="Batimentos" stroke="#F43F5E" strokeWidth={3} dot={(props) => <CustomDot {...props} isDarkMode={isDarkMode} />} activeDot={{ r: 7 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     )}
