@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
-import { Heart, Activity, Droplet, Search, LogOut, UserCircle, Moon, Sun } from 'lucide-react';
+import { Heart, Activity, Droplet, Search, LogOut, UserCircle, Moon, Sun, WifiOff } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase"; 
 
@@ -75,7 +75,6 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
   return null;
 };
 
-// COMPONENTE QUE COLORE AS BOLINHAS DO GRÁFICO DINAMICAMENTE
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomDot = (props: any) => {
   const { cx, cy, value, dataKey, isDarkMode } = props;
@@ -124,6 +123,7 @@ export default function AppFamiliar() {
   const [erroBusca, setErroBusca] = useState("");
   const [buscando, setBuscando] = useState(false);
   
+  const [isOffline, setIsOffline] = useState(false);
   const [jaFalouBoasVindas, setJaFalouBoasVindas] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -141,6 +141,21 @@ export default function AppFamiliar() {
   const [pressaoAtual, setPressaoAtual] = useState("--");
   const [oximetriaAtual, setOximetriaAtual] = useState("--");
   const [batimentosAtual, setBatimentosAtual] = useState("--");
+
+  // VIGILANTE DE CONEXÃO COM A INTERNET NO FAMILIAR
+  useEffect(() => {
+    const handleStatusChange = () => {
+      setIsOffline(!navigator.onLine);
+    };
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+    handleStatusChange(); 
+
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, []);
 
   const emitirVozIA = useCallback((texto: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
@@ -346,6 +361,13 @@ export default function AppFamiliar() {
   return (
     <div className={`min-h-screen font-sans antialiased select-none [-webkit-touch-callout:none] transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-gray-100' : 'bg-[#F8FAFC] text-gray-800'}`} onContextMenu={(e) => e.preventDefault()}>
       
+      {/* BANNER DE AVISO DE OFFLINE DO FAMILIAR */}
+      {isOffline && (
+        <div className="fixed bottom-0 left-0 right-0 bg-amber-500 text-white py-2 px-4 text-center text-xs md:text-sm font-bold z-50 flex items-center justify-center gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+          <WifiOff className="w-4 h-4 animate-pulse" /> Você está offline. O prontuário será atualizado quando a internet voltar.
+        </div>
+      )}
+
       {String(telaAtual) === 'busca' && (
         <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50'}`}>
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
@@ -500,7 +522,6 @@ export default function AppFamiliar() {
                           <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: isDarkMode ? '#9CA3AF' : '#4B5563', fontSize: 12 }} />
                           <Tooltip content={<CustomTooltip isDarkMode={isDarkMode} />} cursor={{ stroke: isDarkMode ? '#4B5563' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }} />
                           
-                          {/* MARGENS DE ALERTA MÉDICO NO FAMILIAR */}
                           <ReferenceArea y1={180} fill="#EF4444" fillOpacity={0.05} />
                           <ReferenceArea y2={60} fill="#3B82F6" fillOpacity={0.05} />
                           <ReferenceLine y={180} stroke="#EF4444" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'ALERTA MÁXIMO', fill: '#EF4444', fontSize: 10, fontWeight: 'bold' }} />

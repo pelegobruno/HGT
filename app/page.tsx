@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
-import { Heart, Activity, Droplet, PlusCircle, X, Bell, Camera, AlertCircle, Edit2, Moon, Sun, CheckCircle, LogOut, UserCircle } from 'lucide-react';
+// Adicionamos o ícone WifiOff
+import { Heart, Activity, Droplet, PlusCircle, X, Bell, Camera, AlertCircle, Edit2, Moon, Sun, CheckCircle, LogOut, UserCircle, WifiOff } from 'lucide-react';
 
 import { collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, User } from "firebase/auth";
@@ -77,7 +78,6 @@ const CustomTooltip = ({ active, payload, label, isDarkMode }: any) => {
   return null;
 };
 
-// COMPONENTE QUE COLORE AS BOLINHAS DO GRÁFICO DINAMICAMENTE
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomDot = (props: any) => {
   const { cx, cy, value, dataKey, isDarkMode } = props;
@@ -86,16 +86,16 @@ const CustomDot = (props: any) => {
   let dotColor = "#8884d8"; 
 
   if (dataKey === 'HGT') {
-    if (value < 70 || value > 180) dotColor = "#ef4444"; // Vermelho
-    else if (value > 130) dotColor = "#f59e0b"; // Amarelo
-    else dotColor = "#22c55e"; // Verde
+    if (value < 70 || value > 180) dotColor = "#ef4444"; 
+    else if (value > 130) dotColor = "#f59e0b"; 
+    else dotColor = "#22c55e"; 
   } else if (dataKey === 'SIS') {
-    if (value > 180) dotColor = "#ef4444"; // Crise
-    else if (value >= 160) dotColor = "#f97316"; // Estagio 2 (Laranja)
-    else if (value >= 140) dotColor = "#f59e0b"; // Estagio 1 (Âmbar)
-    else if (value >= 120) dotColor = "#eab308"; // Pre-hipert (Amarelo)
-    else if (value < 90) dotColor = "#3b82f6"; // Baixa (Azul)
-    else dotColor = "#22c55e"; // Normal
+    if (value > 180) dotColor = "#ef4444"; 
+    else if (value >= 160) dotColor = "#f97316"; 
+    else if (value >= 140) dotColor = "#f59e0b"; 
+    else if (value >= 120) dotColor = "#eab308"; 
+    else if (value < 90) dotColor = "#3b82f6"; 
+    else dotColor = "#22c55e"; 
   } else if (dataKey === 'DIA') {
     if (value > 110) dotColor = "#ef4444"; 
     else if (value >= 100) dotColor = "#f97316"; 
@@ -131,6 +131,9 @@ export default function AppIdoso() {
   const [nomeRegistro, setNomeRegistro] = useState(""); 
   const [erroAuth, setErroAuth] = useState(""); 
   
+  // ESTADO DE OFFLINE
+  const [isOffline, setIsOffline] = useState(false);
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('temaEloVital') === 'escuro';
     return false;
@@ -159,22 +162,23 @@ export default function AppIdoso() {
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
+  // VIGILANTE DE CONEXÃO COM A INTERNET
+  useEffect(() => {
+    const handleStatusChange = () => {
+      setIsOffline(!navigator.onLine);
+    };
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+    handleStatusChange(); 
+
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, []);
+
   const obterStatus = (tipo: string, valor: string) => {
     if (!valor || valor === "--") return null;
-    
-    if (tipo === "Pressao") {
-      const partes = valor.split('/'); if (partes.length !== 2) return null;
-      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
-      
-      if (sis > 180 || dia > 110) return { texto: "Crise Hipertensiva", cor: "bg-red-200 text-red-900 dark:bg-red-900/60 dark:text-red-300" };
-      if (sis >= 160 || dia >= 100) return { texto: "Hipertensão Estágio 2", cor: "bg-orange-200 text-orange-900 dark:bg-orange-900/50 dark:text-orange-400" };
-      if (sis >= 140 || dia >= 90) return { texto: "Hipertensão Estágio 1", cor: "bg-amber-200 text-amber-900 dark:bg-amber-900/50 dark:text-amber-400" };
-      if (sis >= 120 || dia >= 80) return { texto: "Pré-hipertensão", cor: "bg-yellow-200 text-yellow-900 dark:bg-yellow-900/50 dark:text-yellow-400" };
-      if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" };
-      
-      return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
-    }
-    
     if (tipo === "HGT") {
       const num = parseInt(valor);
       if (num < 70) return { texto: "Baixa", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
@@ -182,7 +186,15 @@ export default function AppIdoso() {
       if (num <= 180) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
       return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
     }
-    
+    if (tipo === "Pressao") {
+      const partes = valor.split('/'); if (partes.length !== 2) return null;
+      const sis = parseInt(partes[0]); const dia = parseInt(partes[1]);
+      
+      if (sis < 90 || dia < 60) return { texto: "Baixa", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      if (sis >= 140 || dia >= 90) return { texto: "Alta", cor: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" };
+      if (sis >= 130 || dia >= 85) return { texto: "Atenção", cor: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" };
+      return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
+    }
     if (tipo === "SpO2") {
       const num = parseInt(valor);
       if (num >= 95) return { texto: "Normal", cor: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" };
@@ -234,7 +246,8 @@ export default function AppIdoso() {
   }, []);
 
   const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string) => {
-    let textoResumo = "Medição salva com sucesso. ";
+    let textoResumo = "Medição salva com sucesso no sistema. ";
+    if (isOffline) textoResumo = "Você está sem internet, mas não se preocupe! Medição salva na memória. ";
     
     if (hgt && hgt !== "") {
       const st = obterStatus("HGT", hgt)?.texto;
@@ -246,12 +259,11 @@ export default function AppIdoso() {
     
     if (pressaoFinal && pressaoFinal !== "--" && pressaoFinal !== "/") {
       const st = obterStatus("Pressao", pressaoFinal)?.texto; 
-      
       if (st === "Crise Hipertensiva") textoResumo += "Alerta máximo! Sua pressão arterial indica crise hipertensiva. Procure ajuda médica imediatamente. ";
       else if (st === "Hipertensão Estágio 2") textoResumo += "Atenção! Sua pressão arterial está muito elevada, indicando estágio dois. Procure repousar. ";
       else if (st === "Hipertensão Estágio 1") textoResumo += "Sua pressão arterial está alta, indicando estágio um. Requer acompanhamento. ";
-      else if (st === "Pré-hipertensão") textoResumo += "Sua pressão arterial indica pré-hipertensão. Fique de olho e cuide da alimentação. ";
-      else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar para não sentir tontura. ";
+      else if (st === "Pré-hipertensão") textoResumo += "Sua pressão arterial indica pré-hipertensão. Fique de olho. ";
+      else if (st === "Baixa") textoResumo += "Sua pressão arterial está baixa, levante-se devagar. ";
       else if (st === "Normal") textoResumo += "Sua pressão arterial está normal. Excelente! ";
     }
     
@@ -264,7 +276,7 @@ export default function AppIdoso() {
     
     if (bpm && bpm !== "") {
       const st = obterStatus("BPM", bpm)?.texto;
-      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requer atenção. ";
+      if (st === "Atenção" || st === "Alerta") textoResumo += "Seus batimentos cardíacos requerem atenção. ";
       else if (st === "Normal") textoResumo += "Seus batimentos estão no ritmo certo. ";
     }
 
@@ -520,6 +532,13 @@ export default function AppIdoso() {
   return (
     <div className={`min-h-screen font-sans antialiased select-none [-webkit-touch-callout:none] transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900 text-gray-100' : 'bg-[#F8FAFC] text-gray-800'}`} onContextMenu={(e) => e.preventDefault()}>
       
+      {/* BANNER DE AVISO DE OFFLINE */}
+      {isOffline && (
+        <div className="fixed bottom-0 left-0 right-0 bg-amber-500 text-white py-2 px-4 text-center text-xs md:text-sm font-bold z-50 flex items-center justify-center gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+          <WifiOff className="w-4 h-4 animate-pulse" /> Você está offline. As medições serão salvas quando a internet voltar.
+        </div>
+      )}
+
       {telaAtual === 'auth' && (
         <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
           <div className={`max-w-md w-full p-8 rounded-3xl shadow-2xl border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-100'}`}>
@@ -657,7 +676,7 @@ export default function AppIdoso() {
             <button onClick={() => setAbaAtiva('historico')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${abaAtiva === 'historico' ? 'border-teal-500 text-teal-600 dark:bg-gray-700/30' : 'border-transparent text-gray-500'}`}>Histórico Clínico</button>
           </div>
 
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-16">
             {abaAtiva === 'painel' && (
               <div className="animate-in fade-in duration-300">
                 <div className="relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-teal-900 rounded-2xl md:rounded-3xl p-6 md:p-10 text-white shadow-xl flex flex-col md:flex-row justify-between items-center mb-6 md:mb-10 border border-teal-400/20">
