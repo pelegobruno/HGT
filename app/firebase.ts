@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBDnzoUoWsMomCKcE8kJHPC43ULtTRvugY",
@@ -11,10 +11,12 @@ const firebaseConfig = {
   appId: "1:477404989909:web:7c21de2b5160a6e114555c"
 };
 
-// Evita o erro de "App já existe" no Next.js
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Ativa a memória offline segura do banco de dados
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 export { app, auth, db };
