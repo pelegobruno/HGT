@@ -15,6 +15,8 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Esta é a linha mágica que acalma a Vercel e o Turbopack:
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
