@@ -15,8 +15,6 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Esta é a configuração exata que a Vercel pediu para liberar o site:
-  turbopack: {},
 };
 
 export default withPWA(nextConfig);
