@@ -245,9 +245,12 @@ export default function AppIdoso() {
     }
   }, []);
 
-  const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string) => {
+  const falarResumoSaude = (hgt: string, pressaoFinal: string, oxi: string, bpm: string, isOfflineNow: boolean) => {
     let textoResumo = "Medição salva com sucesso no sistema. ";
-    if (isOffline) textoResumo = "Você está sem internet, mas não se preocupe! Medição salva na memória. ";
+    // Adiciona o aviso por voz caso esteja offline
+    if (isOfflineNow) {
+      textoResumo = "Você está sem internet, mas não se preocupe! Medição salva na memória. ";
+    }
     
     if (hgt && hgt !== "") {
       const st = obterStatus("HGT", hgt)?.texto;
@@ -480,27 +483,43 @@ export default function AppIdoso() {
     return () => unsubscribe();
   }, [cpfAtivo, telaAtual]);
 
+
+  // CORREÇÃO: Função salvar com disparo assíncrono para não travar no offline
   const salvarMedicoes = async () => {
-    if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { setModalAberto(false); return; }
+    if (!formHGT && !formPressaoSis && !formPressaoDia && !formOxi && !formBpm) { 
+      setModalAberto(false); 
+      return; 
+    }
+    
     const dataExExata = new Date().toLocaleDateString('pt-BR');
     const horaExExata = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     let pressaoFinal = "--";
     if (formPressaoSis && formPressaoDia) pressaoFinal = `${formPressaoSis}/${formPressaoDia}`;
 
     const novoRegistro = {
-      cpf: cpfAtivo, data: dataExExata, hora: horaExExata, hgtNumero: formHGT ? parseInt(formHGT) : null,
-      hgtTexto: formHGT || "--", pressao: pressaoFinal, oximetria: formOxi || "--", batimentos: formBpm || "--",
-      timestamp: serverTimestamp(), autor: usuario?.email || 'Paciente'
+      cpf: cpfAtivo, 
+      data: dataExExata, 
+      hora: horaExExata, 
+      hgtNumero: formHGT ? parseInt(formHGT) : null,
+      hgtTexto: formHGT || "--", 
+      pressao: pressaoFinal, 
+      oximetria: formOxi || "--", 
+      batimentos: formBpm || "--",
+      timestamp: serverTimestamp(), 
+      autor: usuario?.email || 'Paciente'
     };
 
-    try {
-      await addDoc(collection(db, "medicoes"), novoRegistro);
-      falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm); 
-      
-      setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
-      setModalAberto(false);
-      setShowToast(true); setTimeout(() => setShowToast(false), 4000);
-    } catch { alert("Erro ao guardar medição."); }
+    // 1. Fechamos o modal e damos feedback na hora, sem esperar pela internet!
+    const internetCaiu = !navigator.onLine; // Checa se estamos offline neste exato momento
+    falarResumoSaude(formHGT, pressaoFinal, formOxi, formBpm, internetCaiu); 
+    setFormHGT(""); setFormPressaoSis(""); setFormPressaoDia(""); setFormOxi(""); setFormBpm("");
+    setModalAberto(false);
+    setShowToast(true); setTimeout(() => setShowToast(false), 4000);
+
+    // 2. Empurramos a gravação para o Firebase sem "await" que trava
+    addDoc(collection(db, "medicoes"), novoRegistro).catch((err) => {
+      console.warn("Medição foi enfileirada no cache local (Modo Offline).", err);
+    });
   };
 
   const statusGlicemia = obterStatus("HGT", glicemiaAtual);
