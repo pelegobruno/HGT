@@ -7,7 +7,7 @@ const withPWA = withPWAInit({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
-  disable: false, // Mantém o motor offline ativo em produção
+  disable: false, 
   workboxOptions: {
     disableDevLogs: true,
   }
@@ -15,10 +15,8 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Esta linha força a Vercel a aceitar as configurações de cache offline:
-  webpack: (config) => {
-    return config;
-  },
+  // Esta é a configuração exata que a Vercel pediu para liberar o site:
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
